@@ -1,4 +1,4 @@
-# SnapaSjakk
+RindenSjakk
 
 Trekk ut sjakkåpninger/repertoar fra video (f.eks. *The Gambit Man* på Lichess) og
 lagre dem som **PGN repertoar-tre** — hovedlinje + variantene som vises i videoen.
