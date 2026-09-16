@@ -266,6 +266,22 @@ function openImport() {
   dlg.showModal();
 }
 
+/* ---------- video link (queued; engine wires in next phase) ---------- */
+function looksLikeVideoUrl(u) { return /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)\//i.test(u); }
+function fetchFromLink() {
+  const input = $('#video-url'), status = $('#link-status');
+  const url = input.value.trim();
+  if (!url) { status.textContent = 'Lim inn en lenke først.'; return; }
+  if (!looksLikeVideoUrl(url)) { status.textContent = 'Ser ikke ut som en YouTube-lenke.'; return; }
+  const rep = addRep('Ny åpning (fra video)', 'video-kø');
+  rep.pending = true; rep.videoUrl = url;
+  rep.root.children.push({ san: '(venter på uttrekk)', uci: '', fen: rep.root.start_fen, children: [],
+    comment: 'Kilde: ' + url + ' — motoren leser brettet og fyller trekkene i neste steg (video → trekk).' });
+  saveStore(store); input.value = '';
+  status.textContent = 'Lagret i køen. Video → trekk-motoren kobles på i neste steg.';
+  render();
+}
+
 /* ---------- flip ---------- */
 function flipBoard() { const rep = current(); if (!rep) return; rep.orientation = rep.orientation === 'black' ? 'white' : 'black'; saveStore(store); renderBoard(); }
 
@@ -279,6 +295,8 @@ $('#btn-next').addEventListener('click', goNext);
 $('#btn-flip').addEventListener('click', flipBoard);
 $('#btn-new').addEventListener('click', () => addRep('Ny åpning', 'lokal'));
 $('#btn-import').addEventListener('click', openImport);
+$('#btn-fetch').addEventListener('click', fetchFromLink);
+$('#video-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchFromLink(); });
 document.querySelectorAll('dialog [data-close]').forEach((b) => b.addEventListener('click', (e) => e.target.closest('dialog').close()));
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
