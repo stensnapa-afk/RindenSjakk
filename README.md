@@ -22,6 +22,18 @@ desktop-vindu).
 | 4 | Desktop-viewer (brett + variant-tre + bibliotek med rediger/slett, lagres lokalt) | ✅ demo kjører |
 | 5 | Koble motoren til vieweren (video → tre → viewer) + pakking `.exe` (PyInstaller) | planlagt |
 
+## Installasjon hjemme (én gang)
+
+Alt kjører lokalt på din egen Windows-PC — ingen sky, ingen konto.
+
+1. **Last ned prosjektet:** grønn `Code`-knapp på GitHub → `Download ZIP` → pakk ut.
+   (Eller `git clone https://github.com/stensnapa-afk/RindenSjakk`.)
+2. **Dobbeltklikk `install.bat`.** Den sjekker at Python 3 og Node.js finnes
+   (åpner nedlastingssiden om noe mangler), lager et lokalt miljø og installerer alt.
+3. Ferdig. Deretter:
+   - **`start.bat`** → åpner appen (brett + repertoar) i nettleseren.
+   - **`hent.bat "https://youtu.be/…"`** → trekker trekk ut av en video til PGN.
+
 ## Kjør vieweren (lokalt, kun PC)
 
 Dobbeltklikk **`start.bat`** (krever Python 3) — åpner http://localhost:8777/ i nettleseren.

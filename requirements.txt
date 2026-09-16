@@ -1,9 +1,8 @@
-# RindenSjakk — Python dependencies
-# Fase 0 (deterministic core): rules engine only.
-python-chess==1.11.2
+# RindenSjakk — Python dependencies (installeres av install.bat i et venv)
+python-chess==1.11.2          # regelmotor: FEN-tidslinje -> lovlig PGN-tre
+opencv-python-headless>=4.10  # brett-lokalisering + brikkegjenkjenning
+numpy>=1.26                   # bilde/frame-matte
+yt-dlp>=2026.8                # last ned YouTube-video (krever Node.js som JS-runtime)
 
-# Added in later phases (kept here as a roadmap, not yet imported):
-#   yt-dlp            # Fase 1: video + description + subtitle ingest
-#   opencv-python     # Fase 2: board detection + piece template matching
-#   numpy             # Fase 2: frame/image math
-#   faster-whisper    # Fase 3: local, optional speech-to-text (no cloud GPU)
+# Valgfri, senere fase (ikke nødvendig for å kjøre):
+#   faster-whisper            # Fase 3: lokal tale-til-tekst som kryssjekk (ingen sky-GPU)
