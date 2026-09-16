@@ -62,30 +62,32 @@ def _load_templates() -> dict[str, tuple[np.ndarray, np.ndarray]]:
 
 
 def _piece_crop(sq: np.ndarray):
-    """Isolate the piece against the (uniform) square background. Returns
-    (gray_crop, mask_crop) both tight to the piece bbox, or None if too little
-    foreground. The mask is the piece silhouette — robust for dark-on-dark pieces
-    where internal intensity detail is lost."""
-    c = _center(sq, 0.86)
+    """Isolate the piece as a filled silhouette, returned as (gray_crop, mask_crop)
+    tight to the bbox, or None if no piece.
+
+    Built from the piece OUTLINE via Canny edges + filled contour. The dark
+    cburnett outline always contrasts with the square, so this is robust across
+    board themes and to white-on-light / dark-on-dark blending that defeats a
+    background-difference threshold."""
+    c = _center(sq, 0.9)
     if c.size == 0:
         return None
     gray = cv2.cvtColor(c, cv2.COLOR_BGR2GRAY)
-    border = np.concatenate([gray[0, :], gray[-1, :], gray[:, 0], gray[:, -1]])
-    bg = float(np.median(border))
-    fg = (np.abs(gray.astype(np.float32) - bg) > 32).astype(np.uint8)
-    fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
-    fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-    # keep the largest connected component (drops cursor/label speckle)
-    n, labels, stats, _ = cv2.connectedComponentsWithStats(fg, connectivity=8)
-    if n <= 1:
+    edges = cv2.Canny(gray, 40, 120)
+    edges = cv2.dilate(edges, np.ones((3, 3), np.uint8), iterations=1)
+    cnts, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    if not cnts:
         return None
-    big = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
-    if stats[big, cv2.CC_STAT_AREA] < 25:
+    big = max(cnts, key=cv2.contourArea)
+    if cv2.contourArea(big) < gray.size * 0.03:
         return None
-    fg = (labels == big).astype(np.uint8)
-    ys, xs = np.where(fg > 0)
+    mask = np.zeros(gray.shape, np.uint8)
+    cv2.drawContours(mask, [big], -1, 255, thickness=cv2.FILLED)
+    ys, xs = np.where(mask > 0)
+    if len(xs) < 25:
+        return None
     y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
-    return gray[y0:y1 + 1, x0:x1 + 1], fg[y0:y1 + 1, x0:x1 + 1]
+    return gray[y0:y1 + 1, x0:x1 + 1], mask[y0:y1 + 1, x0:x1 + 1] > 0
 
 
 def _tag_to_fen(tag: str) -> str:
