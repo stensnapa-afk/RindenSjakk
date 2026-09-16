@@ -1,5 +1,5 @@
 # RindenSjakk — Python dependencies (installeres av install.bat i et venv)
-python-chess==1.11.2          # regelmotor: FEN-tidslinje -> lovlig PGN-tre
+chess>=1.11                    # regelmotor: FEN-tidslinje -> lovlig PGN-tre (importeres som `import chess`)
 opencv-python-headless>=4.10  # brett-lokalisering + brikkegjenkjenning
 numpy>=1.26                   # bilde/frame-matte
 yt-dlp>=2026.8                # last ned YouTube-video (krever Node.js som JS-runtime)
