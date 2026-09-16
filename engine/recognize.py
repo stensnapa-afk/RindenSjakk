@@ -51,24 +51,41 @@ def _load_templates() -> dict[str, tuple[np.ndarray, np.ndarray]]:
         alpha = cv2.resize(alpha, (CANON, CANON))
         tag = os.path.splitext(os.path.basename(path))[0]  # e.g. 'wK'
         out[tag] = (gray, alpha > 64)
+    # per-type silhouette (shape only, colour-agnostic) from the white pieces.
+    types = {}
+    for letter in "KQRBNP":
+        wt = out.get("w" + letter)
+        if wt is not None:
+            types[letter] = wt[1]
+    out["_types"] = types
     return out
 
 
-def _piece_crop(sq: np.ndarray) -> np.ndarray | None:
-    """Isolate the piece by its contrast against the (uniform) square background,
-    return a tight grayscale crop of the piece — or None if too little foreground."""
+def _piece_crop(sq: np.ndarray):
+    """Isolate the piece against the (uniform) square background. Returns
+    (gray_crop, mask_crop) both tight to the piece bbox, or None if too little
+    foreground. The mask is the piece silhouette — robust for dark-on-dark pieces
+    where internal intensity detail is lost."""
     c = _center(sq, 0.86)
     if c.size == 0:
         return None
     gray = cv2.cvtColor(c, cv2.COLOR_BGR2GRAY)
     border = np.concatenate([gray[0, :], gray[-1, :], gray[:, 0], gray[:, -1]])
     bg = float(np.median(border))
-    fg = (np.abs(gray.astype(np.float32) - bg) > 35).astype(np.uint8)
+    fg = (np.abs(gray.astype(np.float32) - bg) > 32).astype(np.uint8)
+    fg = cv2.morphologyEx(fg, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
     fg = cv2.morphologyEx(fg, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
-    ys, xs = np.where(fg > 0)
-    if len(xs) < 25:
+    # keep the largest connected component (drops cursor/label speckle)
+    n, labels, stats, _ = cv2.connectedComponentsWithStats(fg, connectivity=8)
+    if n <= 1:
         return None
-    return gray[ys.min():ys.max() + 1, xs.min():xs.max() + 1]
+    big = 1 + int(np.argmax(stats[1:, cv2.CC_STAT_AREA]))
+    if stats[big, cv2.CC_STAT_AREA] < 25:
+        return None
+    fg = (labels == big).astype(np.uint8)
+    ys, xs = np.where(fg > 0)
+    y0, y1, x0, x1 = ys.min(), ys.max(), xs.min(), xs.max()
+    return gray[y0:y1 + 1, x0:x1 + 1], fg[y0:y1 + 1, x0:x1 + 1]
 
 
 def _tag_to_fen(tag: str) -> str:
@@ -89,16 +106,33 @@ def classify_square(sq: np.ndarray, templates: dict) -> tuple[str | None, float]
     """Return (fen_char or None for empty, score)."""
     if not square_has_piece(sq):
         return None, 0.0
-    crop = _piece_crop(sq)
-    if crop is None:
+    res = _piece_crop(sq)
+    if res is None:
         return None, 0.0
-    gray = cv2.resize(crop, (CANON, CANON)).astype(np.float32)
-    best_tag, best = None, -2.0
-    for tag, (tg, mask) in templates.items():
-        s = _masked_ncc(gray, tg, mask)
-        if s > best:
-            best, best_tag = s, tag
-    return (_tag_to_fen(best_tag) if best_tag else None), best
+    gray_c, mask_c = res
+    g = cv2.resize(gray_c, (CANON, CANON)).astype(np.float32)
+    m = cv2.resize(mask_c.astype(np.uint8), (CANON, CANON), interpolation=cv2.INTER_NEAREST).astype(bool)
+
+    # 1) type by silhouette IoU (robust to fill brightness / compression).
+    best_letter, best_iou = None, -1.0
+    for letter, tm in templates["_types"].items():
+        inter = float(np.logical_and(m, tm).sum())
+        union = float(np.logical_or(m, tm).sum())
+        iou = inter / union if union else 0.0
+        if iou > best_iou:
+            best_iou, best_letter = iou, letter
+    if best_letter is None:
+        return None, 0.0
+
+    # 2) colour: white cburnett pieces have a light fill, black pieces do not.
+    #    Fraction of piece pixels that are bright separates them cleanly and is
+    #    self-calibrating (independent of the square colour underneath).
+    interior = cv2.erode(m.astype(np.uint8), np.ones((5, 5), np.uint8), iterations=2)
+    sample = g[interior > 0] if int(interior.sum()) >= 8 else g[m]
+    med = float(np.median(sample)) if sample.size else 0.0
+    color = "w" if med > 120 else "b"
+    char = best_letter if color == "w" else best_letter.lower()
+    return char, best_iou
 
 
 def image_grid(img: np.ndarray, bbox, templates) -> list[list[str]]:
