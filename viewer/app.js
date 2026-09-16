@@ -103,6 +103,7 @@ function renderMoves() {
   box.innerHTML = '<div class="movelist">' + renderSeq(rep.root.children, [], 0) + '</div>';
   box.querySelectorAll('.mv').forEach((el) => {
     el.addEventListener('click', () => {
+      stopPlay();
       currentPath = el.dataset.path === '' ? [] : el.dataset.path.split(',').map(Number);
       render();
     });
@@ -206,7 +207,7 @@ function renderLibrary() {
     item.innerHTML = `<span class="name"><b></b><small></small></span>`;
     item.querySelector('b').textContent = rep.name;
     item.querySelector('small').textContent = rep.source || 'lokal';
-    item.addEventListener('click', () => { currentId = rep.id; currentPath = []; pendingDelete = null; render(); });
+    item.addEventListener('click', () => { stopPlay(); currentId = rep.id; currentPath = []; pendingDelete = null; render(); });
 
     const rename = document.createElement('button');
     rename.className = 'icon-btn'; rename.title = 'Gi nytt navn'; rename.textContent = '✎';
@@ -285,6 +286,25 @@ function fetchFromLink() {
 /* ---------- flip ---------- */
 function flipBoard() { const rep = current(); if (!rep) return; rep.orientation = rep.orientation === 'black' ? 'white' : 'black'; saveStore(store); renderBoard(); }
 
+/* ---------- autoplay ---------- */
+let playTimer = null;
+function isAtEnd() {
+  const rep = current(); if (!rep) return true;
+  const ch = currentPath.length ? nodeAt(rep, currentPath).children : rep.root.children;
+  return !(ch && ch.length);
+}
+function stopPlay() {
+  if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  const b = $('#btn-play'); if (b) { b.textContent = '▶ Spill av'; b.classList.remove('primary'); }
+}
+function togglePlay() {
+  if (playTimer) { stopPlay(); return; }
+  const rep = current(); if (!rep || !rep.root.children.length) return;
+  if (isAtEnd()) { currentPath = []; render(); }   // restart from the beginning
+  const b = $('#btn-play'); b.textContent = '⏸ Pause'; b.classList.add('primary');
+  playTimer = setInterval(() => { if (isAtEnd()) { stopPlay(); return; } goNext(); }, 850);
+}
+
 /* ---------- repertoire notes (free text, autosaved) ---------- */
 function renderNotes() {
   const rep = current(); const ta = $('#rep-notes');
@@ -298,9 +318,10 @@ function renderNotes() {
 function render() { renderLibrary(); renderBoard(); renderMoves(); renderNotes(); }
 
 /* ---------- wire up ---------- */
-$('#btn-start').addEventListener('click', goStart);
-$('#btn-prev').addEventListener('click', goPrev);
+$('#btn-start').addEventListener('click', () => { stopPlay(); goStart(); });
+$('#btn-prev').addEventListener('click', () => { stopPlay(); goPrev(); });
 $('#btn-next').addEventListener('click', goNext);
+$('#btn-play').addEventListener('click', togglePlay);
 $('#btn-flip').addEventListener('click', flipBoard);
 $('#btn-new').addEventListener('click', () => addRep('Ny åpning', 'lokal'));
 $('#btn-import').addEventListener('click', openImport);
