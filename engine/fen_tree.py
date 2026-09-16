@@ -43,10 +43,15 @@ def _find_sequence(board: chess.Board, target: str, max_depth: int) -> list[ches
     search hard, so even depth 2-3 stays cheap.
     """
 
+    budget = [20000]  # cap total expansions so deep searches can't explode (~35^n)
+
     def dfs_exact(b: chess.Board, remaining: int) -> list[chess.Move] | None:
         if remaining == 0:
             return [] if b.board_fen() == target else None
         for move in b.legal_moves:
+            if budget[0] <= 0:
+                return None
+            budget[0] -= 1
             b.push(move)
             sub = dfs_exact(b, remaining - 1)
             b.pop()
@@ -59,6 +64,8 @@ def _find_sequence(board: chess.Board, target: str, max_depth: int) -> list[ches
         seq = dfs_exact(probe, depth)
         if seq is not None:
             return seq
+        if budget[0] <= 0:
+            break
     return None
 
 
@@ -80,15 +87,24 @@ def _pick_return(candidates: list[chess.pgn.GameNode], current: chess.pgn.GameNo
     return candidates[-1]
 
 
-def build_tree(placements: Iterable[str], max_bridge: int = 2) -> tuple[chess.pgn.Game, dict[str, int]]:
+def build_tree(placements: Iterable[str], max_bridge: int = 2,
+               root_fen: str | None = None) -> tuple[chess.pgn.Game, dict[str, int]]:
     """Reconstruct a PGN variation tree from an ordered placement timeline.
 
     `max_bridge` is how many missed plies the reconstruction will span with a
     legal-move search before treating a discontinuity as a jump/return.
+
+    `root_fen` seeds the starting position. Leave it None for a game shown from
+    the initial array (repertoire videos); pass a full FEN to start mid-game
+    (e.g. a live game whose opening happened before the first sampled frame),
+    otherwise the first observation is unreachable from the standard start and
+    the whole timeline degrades to gaps.
     """
     game = chess.pgn.Game()
     game.headers["Event"] = "RindenSjakk import"
     game.headers["Site"] = "video"
+    if root_fen:
+        game.setup(chess.Board(root_fen))
 
     current: chess.pgn.GameNode = game
     # placement -> nodes reaching it, for return/jump detection.
@@ -138,7 +154,7 @@ def build_tree(placements: Iterable[str], max_bridge: int = 2) -> tuple[chess.pg
 
         # Unseen and unbridged: maybe he reset to the start and entered a new
         # line -- try to reach it from the root (a top-level repertoire branch).
-        root_seq = _find_sequence(game.board(), target, max_bridge + 2)
+        root_seq = _find_sequence(game.board(), target, max_bridge)
         if root_seq is not None:
             current = apply_sequence(game, root_seq)
             continue

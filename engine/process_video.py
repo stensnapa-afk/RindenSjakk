@@ -99,7 +99,22 @@ def process(video: str, interval: float, start: float, end: float | None,
         if not dedup or pl != dedup[-1]:
             dedup.append(pl)
 
-    game, stats = build_tree(dedup)
+    # Seed the tree from the start position, or from the first observation
+    # (mid-game start) trying either side to move — pick whichever reconstructs
+    # the most moves.
+    seeds: list[str | None] = [None]
+    if dedup:
+        seeds += [dedup[0] + " w - - 0 1", dedup[0] + " b - - 0 1"]
+    best = None
+    for rf in seeds:
+        try:
+            g, s = build_tree(dedup, max_bridge=3, root_fen=rf)
+        except Exception:  # noqa: BLE001
+            continue
+        if best is None or s["moves"] > best[1]["moves"]:
+            best = (g, s)
+    game, stats = best if best else build_tree(dedup)
+
     stats["frames"] = len(frames)
     stats["legal"] = len(placements)
     stats["unique"] = len(dedup)
