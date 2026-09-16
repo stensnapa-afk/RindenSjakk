@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Local secrets / env (hygiene — never commit)
+.env
+.env.*
+!.env.example
+
+# Downloaded media & generated frames (large, not source)
+*.mp4
+*.mkv
+*.webm
+*.part
+frames/
+downloads/
+data/
+
+# Generated PGN output (keep demo_benko.pgn as a checked-in example)
+*.pgn
+!engine/demo_benko.pgn
+
+# OS
+Thumbs.db
+.DS_Store

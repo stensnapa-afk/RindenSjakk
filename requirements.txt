@@ -1,0 +1,9 @@
+# SnapaSjakk — Python dependencies
+# Fase 0 (deterministic core): rules engine only.
+python-chess==1.11.2
+
+# Added in later phases (kept here as a roadmap, not yet imported):
+#   yt-dlp            # Fase 1: video + description + subtitle ingest
+#   opencv-python     # Fase 2: board detection + piece template matching
+#   numpy             # Fase 2: frame/image math
+#   faster-whisper    # Fase 3: local, optional speech-to-text (no cloud GPU)
