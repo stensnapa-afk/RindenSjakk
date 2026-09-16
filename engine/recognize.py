@@ -181,11 +181,39 @@ def placement_from_grid(grid: list[list[str]], orientation: str) -> str:
     return "/".join(rows)
 
 
+_SVM = None
+
+
+def _svm():
+    """Lazy-load the trained piece classifier (theme-robust). False if absent."""
+    global _SVM
+    if _SVM is None:
+        path = os.path.join(os.path.dirname(__file__), "models", "piece_svm.xml")
+        _SVM = cv2.ml.SVM_load(path) if os.path.exists(path) else False
+    return _SVM
+
+
+def image_grid_svm(img: np.ndarray, bbox) -> list[list[str]]:
+    """8x8 grid of fen chars via the trained HOG+SVM classifier (batched)."""
+    from engine.features import square_to_feature, CLASSES
+    svm = _svm()
+    squares = split_squares(img, bbox)
+    feats = np.array([square_to_feature(squares[r][c]) for r in range(8) for c in range(8)], np.float32)
+    preds = svm.predict(feats)[1].flatten().astype(int)
+    grid = []
+    for r in range(8):
+        grid.append(["." if CLASSES[preds[r * 8 + c]] == "empty" else CLASSES[preds[r * 8 + c]] for c in range(8)])
+    return grid
+
+
 def recognize_placement(img: np.ndarray, orientation: str = "white",
                         templates: dict | None = None) -> str:
-    templates = templates or _load_templates()
     bbox = detect_board_bbox(img)
-    grid = image_grid(img, bbox, templates)
+    if _svm():                                  # trained classifier preferred
+        grid = image_grid_svm(img, bbox)
+    else:                                        # fallback: template IoU
+        templates = templates or _load_templates()
+        grid = image_grid(img, bbox, templates)
     return placement_from_grid(grid, orientation)
 
 
