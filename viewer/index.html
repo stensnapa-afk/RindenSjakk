@@ -46,7 +46,7 @@
 
   main{
     display:grid;
-    grid-template-columns:270px minmax(360px,1fr) 340px;
+    grid-template-columns:270px minmax(0,1fr) 340px;
     gap:18px;padding:18px;max-width:1240px;margin:0 auto;align-items:start;
   }
   .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
@@ -77,10 +77,10 @@
 
   /* ---- Board ---- */
   .board-wrap{padding:16px;display:flex;flex-direction:column;gap:12px;align-items:center}
-  .board{width:min(72vw,520px);aspect-ratio:1;display:grid;
+  .board{width:100%;max-width:520px;aspect-ratio:1;container-type:inline-size;display:grid;
     grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
     border-radius:10px;overflow:hidden;box-shadow:var(--shadow);border:1px solid #0c0d10}
-  .sq{position:relative;display:grid;place-items:center;font-size:min(8vw,52px);line-height:1;
+  .sq{position:relative;display:grid;place-items:center;font-size:9cqw;line-height:1;
     user-select:none}
   .sq.light{background:var(--sq-light)}
   .sq.dark{background:var(--sq-dark)}
@@ -111,6 +111,13 @@
   .nav{display:flex;gap:6px;padding:4px 14px 0}
   .comment{padding:0 14px 12px;color:var(--ink-dim);font-style:italic;font-size:13.5px}
   .empty{color:var(--ink-dim);padding:16px;text-align:center;font-size:13.5px}
+  .notes-wrap{border-top:1px solid var(--line);padding:12px 14px 14px}
+  .notes-wrap h2{padding:0 0 8px}
+  .notes-wrap textarea{width:100%;min-height:96px;resize:vertical;background:var(--panel-2);
+    border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:10px 12px;
+    font:14px/1.5 inherit}
+  .notes-wrap textarea:focus{outline:none;border-color:var(--accent)}
+  .notes-wrap textarea:disabled{opacity:.5}
 
   dialog{border:1px solid var(--line);background:var(--panel);color:var(--ink);
     border-radius:12px;box-shadow:var(--shadow);padding:0;max-width:440px;width:92vw}
@@ -130,7 +137,7 @@
     border-radius:9px;padding:10px 12px;font:14px/1.4 inherit}
   .linkbar input:focus{outline:none;border-color:var(--accent)}
   .link-status{font-size:12.5px;color:var(--ink-dim)}
-  @media (max-width:900px){main{grid-template-columns:1fr}.linkbar{flex-wrap:wrap}}
+  @media (max-width:1024px){main{grid-template-columns:1fr}.linkbar{flex-wrap:wrap}}
 </style>
 </head>
 <body>
@@ -182,6 +189,10 @@
     <div class="moves" id="moves"></div>
     <div class="comment" id="comment"></div>
     <div class="node-tools" id="node-tools"></div>
+    <div class="notes-wrap">
+      <h2>Notater</h2>
+      <textarea id="rep-notes" placeholder="Skriv ned tanker om åpningen …"></textarea>
+    </div>
   </section>
 </main>
 

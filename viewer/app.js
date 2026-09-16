@@ -285,8 +285,17 @@ function fetchFromLink() {
 /* ---------- flip ---------- */
 function flipBoard() { const rep = current(); if (!rep) return; rep.orientation = rep.orientation === 'black' ? 'white' : 'black'; saveStore(store); renderBoard(); }
 
+/* ---------- repertoire notes (free text, autosaved) ---------- */
+function renderNotes() {
+  const rep = current(); const ta = $('#rep-notes');
+  if (!ta) return;
+  ta.value = rep && rep.notes ? rep.notes : '';
+  ta.disabled = !rep;
+  ta.placeholder = rep ? 'Skriv ned tanker om åpningen …' : 'Velg en åpning først';
+}
+
 /* ---------- render all ---------- */
-function render() { renderLibrary(); renderBoard(); renderMoves(); }
+function render() { renderLibrary(); renderBoard(); renderMoves(); renderNotes(); }
 
 /* ---------- wire up ---------- */
 $('#btn-start').addEventListener('click', goStart);
@@ -297,6 +306,7 @@ $('#btn-new').addEventListener('click', () => addRep('Ny åpning', 'lokal'));
 $('#btn-import').addEventListener('click', openImport);
 $('#btn-fetch').addEventListener('click', fetchFromLink);
 $('#video-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchFromLink(); });
+$('#rep-notes').addEventListener('input', () => { const rep = current(); if (!rep) return; rep.notes = $('#rep-notes').value; saveStore(store); });
 document.querySelectorAll('dialog [data-close]').forEach((b) => b.addEventListener('click', (e) => e.target.closest('dialog').close()));
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
