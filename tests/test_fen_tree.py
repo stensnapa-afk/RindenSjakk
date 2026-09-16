@@ -1,6 +1,6 @@
-"""Unit tests for the SnapaSjakk placement-timeline -> PGN-tree core.
+"""Unit tests for the RindenSjakk placement-timeline -> PGN-tree core.
 
-Run: python -m unittest discover -s tests   (from projects/snapasjakk)
+Run: python -m unittest discover -s tests   (from projects/rindensjakk)
 
 The tests build a synthetic timeline with python-chess (so it is self-consistent
 with the rules engine), then assert the reconstruction recovers the main line,

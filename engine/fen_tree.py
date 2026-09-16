@@ -1,4 +1,4 @@
-"""SnapaSjakk core: reconstruct a PGN repertoire *tree* from a timeline of
+"""RindenSjakk core: reconstruct a PGN repertoire *tree* from a timeline of
 observed board placements.
 
 The upstream board-CV stage (Fase 2) can only read the *piece placement* of the
@@ -87,7 +87,7 @@ def build_tree(placements: Iterable[str], max_bridge: int = 2) -> tuple[chess.pg
     legal-move search before treating a discontinuity as a jump/return.
     """
     game = chess.pgn.Game()
-    game.headers["Event"] = "SnapaSjakk import"
+    game.headers["Event"] = "RindenSjakk import"
     game.headers["Site"] = "video"
 
     current: chess.pgn.GameNode = game

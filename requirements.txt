@@ -1,4 +1,4 @@
-# SnapaSjakk — Python dependencies
+# RindenSjakk — Python dependencies
 # Fase 0 (deterministic core): rules engine only.
 python-chess==1.11.2
 

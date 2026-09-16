@@ -1,7 +1,7 @@
 """Demo: reconstruct a Benko-Gambit repertoire fragment (main line + one
 variation from a takeback) and write the PGN tree to demo_benko.pgn.
 
-Run: python engine/demo_benko.py   (from projects/snapasjakk)
+Run: python engine/demo_benko.py   (from projects/rindensjakk)
 """
 
 import os

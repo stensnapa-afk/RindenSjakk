@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RindenSjakk</title>
+<style>
+  :root{
+    --bg:#14161a;
+    --panel:#1c1f25;
+    --panel-2:#232830;
+    --line:#2c323b;
+    --ink:#e7e3da;          /* warm off-white, not pure white */
+    --ink-dim:#9aa0a8;
+    --accent:#6e8b5a;        /* muted sage */
+    --accent-soft:#41502f;
+    --danger:#b4544a;        /* muted brick red */
+    --sq-light:#d8d2c2;
+    --sq-dark:#5c6b4a;       /* olive */
+    --hl:#c7d38f;            /* soft last-move tint */
+    --shadow:0 6px 24px rgba(0,0,0,.35);
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:var(--bg);color:var(--ink);
+    font:15px/1.5 "Segoe UI",system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  header{
+    display:flex;align-items:center;gap:14px;
+    padding:14px 20px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#171a1f,#14161a);
+  }
+  header .logo{
+    width:34px;height:34px;border-radius:9px;
+    background:radial-gradient(circle at 30% 25%,#7e9b5b,#41502f);
+    display:grid;place-items:center;font-size:20px;color:#12140f;box-shadow:var(--shadow);
+  }
+  header h1{font-size:18px;margin:0;font-weight:650;letter-spacing:.2px}
+  header .sub{color:var(--ink-dim);font-size:13px;margin-left:2px}
+  header .spacer{flex:1}
+  .pill{font-size:12px;color:var(--ink-dim);border:1px solid var(--line);
+    padding:4px 10px;border-radius:999px;background:var(--panel)}
+
+  main{
+    display:grid;
+    grid-template-columns:270px minmax(360px,1fr) 340px;
+    gap:18px;padding:18px;max-width:1240px;margin:0 auto;align-items:start;
+  }
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow)}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-dim);
+    margin:0;padding:14px 16px 6px}
+
+  /* ---- Library ---- */
+  .lib-list{padding:6px 8px 10px;display:flex;flex-direction:column;gap:4px}
+  .lib-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:9px;cursor:pointer;
+    border:1px solid transparent}
+  .lib-item:hover{background:var(--panel-2)}
+  .lib-item.active{background:var(--panel-2);border-color:var(--accent-soft)}
+  .lib-item .name{flex:1;min-width:0}
+  .lib-item .name b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lib-item .name small{color:var(--ink-dim);font-size:11.5px;display:block;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .icon-btn{border:none;background:transparent;color:var(--ink-dim);cursor:pointer;
+    width:26px;height:26px;border-radius:7px;font-size:14px;line-height:1}
+  .icon-btn:hover{background:#2b313a;color:var(--ink)}
+  .icon-btn.danger:hover{background:#3a2422;color:#e08b83}
+  .lib-actions{display:flex;gap:8px;padding:0 12px 14px}
+  .btn{border:1px solid var(--line);background:var(--panel-2);color:var(--ink);
+    padding:8px 12px;border-radius:9px;cursor:pointer;font-size:13px}
+  .btn:hover{border-color:var(--accent-soft)}
+  .btn.primary{background:var(--accent-soft);border-color:var(--accent)}
+  .btn.primary:hover{background:#4c5d37}
+
+  /* ---- Board ---- */
+  .board-wrap{padding:16px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  .board{width:min(72vw,520px);aspect-ratio:1;display:grid;
+    grid-template-columns:repeat(8,1fr);grid-template-rows:repeat(8,1fr);
+    border-radius:10px;overflow:hidden;box-shadow:var(--shadow);border:1px solid #0c0d10}
+  .sq{position:relative;display:grid;place-items:center;font-size:min(8vw,52px);line-height:1;
+    user-select:none}
+  .sq.light{background:var(--sq-light)}
+  .sq.dark{background:var(--sq-dark)}
+  .sq.hl::after{content:"";position:absolute;inset:0;background:var(--hl);opacity:.42;mix-blend-mode:multiply}
+  .sq .co{position:absolute;font-size:10px;font-weight:600;opacity:.6}
+  .sq .co.file{right:3px;bottom:1px}
+  .sq .co.rank{left:3px;top:1px}
+  .sq.light .co{color:#5c6b4a}.sq.dark .co{color:#d8d2c2}
+  .piece{position:relative;z-index:1;text-shadow:0 1px 1px rgba(0,0,0,.28)}
+  .piece.w{color:#f4f1ea;filter:drop-shadow(0 0 1px #3a3a34)}
+  .piece.b{color:#2a2a28}
+  .board-bar{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .board-bar .fen{font:12px/1.4 ui-monospace,Consolas,monospace;color:var(--ink-dim);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:6px 9px;
+    max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---- Moves / tree ---- */
+  .moves{padding:12px 14px 8px;max-height:360px;overflow:auto;font-size:14.5px}
+  .movelist{line-height:1.9}
+  .mv{display:inline;cursor:pointer;padding:1px 5px;border-radius:6px}
+  .mv:hover{background:var(--panel-2)}
+  .mv.current{background:var(--accent-soft);color:#eef0e6}
+  .mvnum{color:var(--ink-dim);margin-left:4px}
+  .variation{margin:2px 0 2px 14px;padding-left:10px;border-left:2px solid var(--line);
+    color:var(--ink-dim);font-size:13.5px}
+  .variation .mv.current{color:#eef0e6}
+  .node-tools{display:flex;gap:8px;padding:10px 14px 14px;border-top:1px solid var(--line);flex-wrap:wrap}
+  .nav{display:flex;gap:6px;padding:4px 14px 0}
+  .comment{padding:0 14px 12px;color:var(--ink-dim);font-style:italic;font-size:13.5px}
+  .empty{color:var(--ink-dim);padding:16px;text-align:center;font-size:13.5px}
+
+  dialog{border:1px solid var(--line);background:var(--panel);color:var(--ink);
+    border-radius:12px;box-shadow:var(--shadow);padding:0;max-width:440px;width:92vw}
+  dialog::backdrop{background:rgba(8,9,11,.6)}
+  .dlg-body{padding:18px}
+  .dlg-body h3{margin:0 0 10px;font-size:16px}
+  .dlg-body input,.dlg-body textarea{width:100%;background:var(--panel-2);border:1px solid var(--line);
+    color:var(--ink);border-radius:8px;padding:9px 11px;font:14px/1.4 inherit;margin-top:6px}
+  .dlg-body textarea{min-height:70px;resize:vertical}
+  .dlg-actions{display:flex;gap:10px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line)}
+  label.fld{font-size:12px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">♞</div>
+  <h1>RindenSjakk</h1>
+  <span class="sub">åpninger fra video → repertoar</span>
+  <span class="spacer"></span>
+  <span class="pill" id="status-pill">lokal · lagres kun på denne PC-en</span>
+</header>
+
+<main>
+  <!-- Library -->
+  <section class="card">
+    <h2>Bibliotek</h2>
+    <div class="lib-list" id="lib-list"></div>
+    <div class="lib-actions">
+      <button class="btn primary" id="btn-new">+ Ny</button>
+      <button class="btn" id="btn-import">Importer PGN</button>
+    </div>
+  </section>
+
+  <!-- Board -->
+  <section class="card">
+    <div class="board-wrap">
+      <div class="board" id="board"></div>
+      <div class="board-bar">
+        <button class="btn" id="btn-flip">⇅ Snu brett</button>
+        <span class="fen" id="fen">—</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Moves / tree -->
+  <section class="card">
+    <h2 id="rep-title">Trekk</h2>
+    <div class="nav">
+      <button class="btn" id="btn-start">⏮</button>
+      <button class="btn" id="btn-prev">◀</button>
+      <button class="btn" id="btn-next">▶</button>
+    </div>
+    <div class="moves" id="moves"></div>
+    <div class="comment" id="comment"></div>
+    <div class="node-tools" id="node-tools"></div>
+  </section>
+</main>
+
+<!-- Rename / new dialog -->
+<dialog id="dlg-name">
+  <div class="dlg-body">
+    <h3 id="dlg-name-title">Gi nytt navn</h3>
+    <label class="fld">Navn</label>
+    <input id="dlg-name-input" type="text" />
+  </div>
+  <div class="dlg-actions">
+    <button class="btn" data-close>Avbryt</button>
+    <button class="btn primary" id="dlg-name-ok">Lagre</button>
+  </div>
+</dialog>
+
+<!-- Comment dialog -->
+<dialog id="dlg-comment">
+  <div class="dlg-body">
+    <h3>Notat på denne stillingen</h3>
+    <textarea id="dlg-comment-input" placeholder="F.eks. «Her ofrer svart bonden for initiativ»"></textarea>
+  </div>
+  <div class="dlg-actions">
+    <button class="btn" data-close>Avbryt</button>
+    <button class="btn primary" id="dlg-comment-ok">Lagre</button>
+  </div>
+</dialog>
+
+<!-- Import dialog -->
+<dialog id="dlg-import">
+  <div class="dlg-body">
+    <h3>Importer (enkel lineær PGN/SAN)</h3>
+    <label class="fld">Navn</label>
+    <input id="dlg-import-name" type="text" placeholder="Min åpning" />
+    <label class="fld" style="margin-top:10px;display:block">Trekk (SAN, mellomrom)</label>
+    <textarea id="dlg-import-moves" placeholder="e4 e5 Nf3 Nc6 Bb5 a6"></textarea>
+    <p style="color:var(--ink-dim);font-size:12.5px;margin:8px 0 0">
+      Video-import (auto-uttrekk av trekk) kommer fra motoren — dette feltet er for manuell testing.
+    </p>
+  </div>
+  <div class="dlg-actions">
+    <button class="btn" data-close>Avbryt</button>
+    <button class="btn primary" id="dlg-import-ok">Legg til</button>
+  </div>
+</dialog>
+
+<script src="samples.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

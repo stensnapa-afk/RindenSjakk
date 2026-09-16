@@ -19,8 +19,23 @@ desktop-vindu).
 | 1 | Inntak: `yt-dlp` (video/beskrivelse/undertekst) + lichess-study-snarvei | planlagt |
 | 2 | Brett-CV: `ffmpeg`-frames → lichess-brett → brikke-template-match → FEN/frame | planlagt |
 | 3 | Fusjon: lokal Whisper (valgfri) muntlig notasjon × CV → regelmotor | planlagt |
-| 4 | Lokal lagring (PGN + SQLite) + desktop-viewer (chessground + tre-navigator, ikke mobil/PWA) | planlagt |
-| 5 | Pakking: `.exe` (PyInstaller) med medfølgende `ffmpeg`/`yt-dlp` | planlagt |
+| 4 | Desktop-viewer (brett + variant-tre + bibliotek med rediger/slett, lagres lokalt) | ✅ demo kjører |
+| 5 | Koble motoren til vieweren (video → tre → viewer) + pakking `.exe` (PyInstaller) | planlagt |
+
+## Kjør vieweren (lokalt, kun PC)
+
+Dobbeltklikk **`start.bat`** (krever Python 3) — åpner http://localhost:8777/ i nettleseren.
+Eller manuelt:
+
+```bash
+cd viewer
+python -m http.server 8777
+# åpne http://localhost:8777/
+```
+
+Vieweren er ren statisk HTML/JS uten avhengigheter eller nett-tilgang. Alt du lagrer
+(navn, notater, sletting av varianter) ligger i nettleserens `localStorage` på denne
+maskinen. Seed-data genereres fra motoren med `python engine/tree_json.py`.
 
 ## Kjernens idé (Fase 0)
 
