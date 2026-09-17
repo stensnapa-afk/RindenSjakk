@@ -256,15 +256,39 @@ function openComment() {
   dlg.showModal(); input.focus();
 }
 function openImport() {
-  const dlg = $('#dlg-import'); $('#dlg-import-name').value = ''; $('#dlg-import-moves').value = '';
-  $('#dlg-import-ok').onclick = () => {
-    const name = $('#dlg-import-name').value.trim() || 'Importert';
-    const moves = $('#dlg-import-moves').value.trim();
-    const rep = addRep(name, 'manuell import');
-    if (moves) rep.root.children.push({ san: '(se notat)', uci: '', fen: rep.root.start_fen, children: [], comment: 'Trekk: ' + moves + ' — full parsing skjer i motoren.' });
-    saveStore(store); dlg.close(); render();
+  const dlg = $('#dlg-import');
+  $('#dlg-import-name').value = ''; $('#dlg-import-moves').value = ''; $('#dlg-import-status').textContent = '';
+  const fileInput = $('#dlg-import-fileinput');
+  $('#dlg-import-file').onclick = () => fileInput.click();
+  fileInput.onchange = () => {
+    const f = fileInput.files[0]; if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { $('#dlg-import-moves').value = rd.result; $('#dlg-import-status').textContent = f.name + ' lastet — trykk «Legg til».'; };
+    rd.readAsText(f);
   };
+  $('#dlg-import-ok').onclick = () => doImport($('#dlg-import-moves').value, $('#dlg-import-name').value.trim());
   dlg.showModal();
+}
+function doImport(text, nameOverride) {
+  const status = $('#dlg-import-status');
+  if (!text || !text.trim()) { status.textContent = 'Lim inn PGN eller åpne en .pgn-fil først.'; return; }
+  if (!window.RindenPGN) { status.textContent = 'PGN-motoren mangler (last siden på nytt).'; return; }
+  let res;
+  try { res = window.RindenPGN.parse(text); }
+  catch (e) { status.textContent = 'Klarte ikke å lese PGN: ' + e.message; return; }
+  if (!res.reps.length) { status.textContent = 'Fant ingen gyldige trekk i teksten.'; return; }
+  let added = 0, lastId = null;
+  res.reps.forEach((rep, i) => {
+    rep.id = uid();
+    if (nameOverride) rep.name = res.reps.length > 1 ? nameOverride + ' #' + (i + 1) : nameOverride;
+    store.push(rep); lastId = rep.id; added++;
+  });
+  currentId = lastId; currentPath = []; saveStore(store);
+  $('#dlg-import').close(); render();
+  const warn = res.errors.length
+    ? ' — hoppet over ' + res.errors.length + ' trekk (' + res.errors.slice(0, 3).join(', ') + (res.errors.length > 3 ? '…' : '') + ')'
+    : '';
+  setStatus('Importerte ' + added + ' åpning' + (added > 1 ? 'er' : '') + warn);
 }
 
 /* ---------- video link (queued; engine wires in next phase) ---------- */
@@ -274,13 +298,76 @@ function fetchFromLink() {
   const url = input.value.trim();
   if (!url) { status.textContent = 'Lim inn en lenke først.'; return; }
   if (!looksLikeVideoUrl(url)) { status.textContent = 'Ser ikke ut som en YouTube-lenke.'; return; }
-  const rep = addRep('Ny åpning (fra video)', 'video-kø');
-  rep.pending = true; rep.videoUrl = url;
-  rep.root.children.push({ san: '(venter på uttrekk)', uci: '', fen: rep.root.start_fen, children: [],
-    comment: 'Kilde: ' + url + ' — motoren leser brettet og fyller trekkene i neste steg (video → trekk).' });
-  saveStore(store); input.value = '';
-  status.textContent = 'Lagret i køen. Video → trekk-motoren kobles på i neste steg.';
-  render();
+
+  // Opened as a plain file (file://) there is no engine to call — queue instead.
+  if (location.protocol === 'file:') {
+    const rep = addRep('Ny åpning (fra video)', 'video-kø');
+    rep.pending = true; rep.videoUrl = url;
+    rep.root.children.push({ san: '(kjør motoren)', uci: '', fen: rep.root.start_fen, children: [],
+      comment: 'Kilde: ' + url + ' — for automatisk uttrekk: start appen via start.bat (lokal server), eller kjør  hent.bat "' + url + '"' });
+    saveStore(store); input.value = '';
+    status.textContent = 'Lagret. Auto-uttrekk krever at appen startes via start.bat (server), ikke ved å åpne fila direkte.';
+    render(); return;
+  }
+
+  const btn = $('#btn-fetch'), oldLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Leser video …';
+  status.textContent = 'Laster ned og leser brettet — dette kan ta et par minutter …';
+  fetch('/api/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url }) })
+    .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+    .then(({ ok, j }) => {
+      if (!ok || j.error) { status.textContent = 'Feil: ' + (j.error || 'ukjent'); return; }
+      if (!j.root || !j.root.children || !j.root.children.length) { status.textContent = 'Motoren fant ingen lovlige trekk i videoen.'; return; }
+      const rep = { id: uid(), name: j.name || 'Fra video', source: j.source || 'video', orientation: j.orientation || 'white', root: j.root };
+      store.push(rep); currentId = rep.id; currentPath = []; saveStore(store);
+      const s = j.stats || {};
+      status.textContent = 'Ferdig' + (s.moves != null ? ': ' + s.moves + ' trekk' : '') + (s.unique != null ? ', ' + s.unique + ' stillinger' : '') + '.';
+      input.value = ''; render();
+    })
+    .catch((e) => { status.textContent = 'Kunne ikke nå motoren: ' + e.message; })
+    .finally(() => { btn.disabled = false; btn.textContent = oldLabel; });
+}
+
+/* ---------- storage (downloaded videos on disk) ---------- */
+function fmtBytes(n) {
+  if (n < 1024) return n + ' B';
+  if (n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+  if (n < 1024 * 1024 * 1024) return (n / (1024 * 1024)).toFixed(1) + ' MB';
+  return (n / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+function openStorage() {
+  const dlg = $('#dlg-storage');
+  loadStorage();
+  $('#storage-clear').onclick = () => {
+    fetch('/api/storage/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) })
+      .then((r) => r.json()).then(() => loadStorage()).catch(() => {});
+  };
+  dlg.showModal();
+}
+function loadStorage() {
+  const list = $('#storage-list'), total = $('#storage-total');
+  list.innerHTML = '<div class="empty">Laster …</div>';
+  fetch('/api/storage').then((r) => r.json()).then((data) => {
+    const files = data.files || [];
+    total.textContent = 'Til sammen ' + fmtBytes(data.total || 0) + ' i ' + (data.dir || 'downloads');
+    if (!files.length) { list.innerHTML = '<div class="empty">Ingen nedlastede videoer.</div>'; return; }
+    list.innerHTML = '';
+    files.forEach((f) => {
+      const row = document.createElement('div');
+      row.className = 'lib-item';
+      row.innerHTML = '<span class="name"><b></b><small></small></span>';
+      row.querySelector('b').textContent = f.name;
+      row.querySelector('small').textContent = fmtBytes(f.size);
+      const del = document.createElement('button');
+      del.className = 'icon-btn danger'; del.textContent = '🗑'; del.title = 'Slett';
+      del.addEventListener('click', () => {
+        fetch('/api/storage/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: f.name }) })
+          .then((r) => r.json()).then(() => loadStorage()).catch(() => {});
+      });
+      row.appendChild(del);
+      list.appendChild(row);
+    });
+  }).catch((e) => { list.innerHTML = '<div class="empty">Kunne ikke lese lagring: ' + e.message + '</div>'; });
 }
 
 /* ---------- flip ---------- */
@@ -327,6 +414,10 @@ $('#btn-new').addEventListener('click', () => addRep('Ny åpning', 'lokal'));
 $('#btn-import').addEventListener('click', openImport);
 $('#btn-fetch').addEventListener('click', fetchFromLink);
 $('#video-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') fetchFromLink(); });
+if (location.protocol !== 'file:') {  // storage panel needs the local server
+  const sb = $('#btn-storage');
+  if (sb) { sb.style.display = ''; sb.addEventListener('click', openStorage); }
+}
 $('#rep-notes').addEventListener('input', () => { const rep = current(); if (!rep) return; rep.notes = $('#rep-notes').value; saveStore(store); });
 document.querySelectorAll('dialog [data-close]').forEach((b) => b.addEventListener('click', (e) => e.target.closest('dialog').close()));
 document.addEventListener('keydown', (e) => {

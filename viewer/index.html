@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>RindenSjakk</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231c1f25'/%3E%3Ctext x='16' y='24' font-size='22' text-anchor='middle' fill='%236e8b5a'%3E%E2%99%9E%3C/text%3E%3C/svg%3E" />
 <style>
   :root{
     --bg:#14161a;
@@ -153,6 +154,7 @@
   <span class="lbl">Video&nbsp;→&nbsp;repertoar</span>
   <input id="video-url" type="url" placeholder="Lim inn YouTube-lenke til en åpningsvideo (f.eks. The Gambit Man) …" />
   <button class="btn primary" id="btn-fetch">Hent trekk</button>
+  <button class="btn" id="btn-storage" type="button" style="display:none">Lagring …</button>
   <span class="link-status" id="link-status"></span>
 </div>
 
@@ -225,14 +227,16 @@
 <!-- Import dialog -->
 <dialog id="dlg-import">
   <div class="dlg-body">
-    <h3>Importer (enkel lineær PGN/SAN)</h3>
-    <label class="fld">Navn</label>
-    <input id="dlg-import-name" type="text" placeholder="Min åpning" />
-    <label class="fld" style="margin-top:10px;display:block">Trekk (SAN, mellomrom)</label>
-    <textarea id="dlg-import-moves" placeholder="e4 e5 Nf3 Nc6 Bb5 a6"></textarea>
-    <p style="color:var(--ink-dim);font-size:12.5px;margin:8px 0 0">
-      Video-import (auto-uttrekk av trekk) kommer fra motoren — dette feltet er for manuell testing.
-    </p>
+    <h3>Importer PGN</h3>
+    <label class="fld">Navn (valgfritt — hentes fra PGN-taggene ellers)</label>
+    <input id="dlg-import-name" type="text" placeholder="(automatisk fra PGN)" />
+    <label class="fld" style="margin-top:10px;display:block">Lim inn PGN — varianter, kommentarer og flere partier støttes</label>
+    <textarea id="dlg-import-moves" placeholder="[Event &quot;Min åpning&quot;]&#10;1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 (3... Nf6 4. O-O) 4. Ba4 *&#10;&#10;— eller bare:  e4 e5 Nf3 Nc6 Bb5 a6"></textarea>
+    <div style="display:flex;gap:10px;align-items:center;margin-top:8px;flex-wrap:wrap">
+      <button class="btn" id="dlg-import-file" type="button">Åpne .pgn-fil …</button>
+      <input id="dlg-import-fileinput" type="file" accept=".pgn,.txt" style="display:none" />
+      <span id="dlg-import-status" style="color:var(--ink-dim);font-size:12.5px"></span>
+    </div>
   </div>
   <div class="dlg-actions">
     <button class="btn" data-close>Avbryt</button>
@@ -240,6 +244,25 @@
   </div>
 </dialog>
 
+<!-- Storage dialog (downloaded videos on disk) -->
+<dialog id="dlg-storage">
+  <div class="dlg-body">
+    <h3>Lagret video på disk</h3>
+    <p style="color:var(--ink-dim);font-size:12.5px;margin:0 0 10px">
+      Nedlastede videoer brukes til å lese ut trekk. De trengs ikke etterpå og kan slettes trygt.
+    </p>
+    <div class="lib-list" id="storage-list"></div>
+    <div id="storage-total" style="margin-top:10px;font-size:13px;color:var(--ink-dim)"></div>
+  </div>
+  <div class="dlg-actions">
+    <button class="btn danger" id="storage-clear" type="button">Slett alle</button>
+    <span style="flex:1"></span>
+    <button class="btn" data-close>Lukk</button>
+  </div>
+</dialog>
+
+<script src="chess.js"></script>
+<script src="pgn.js"></script>
 <script src="samples.js"></script>
 <script src="app.js"></script>
 </body>
