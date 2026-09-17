@@ -13,10 +13,10 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 import subprocess
 import sys
-import tempfile
 
 import chess
 import chess.pgn
@@ -37,10 +37,24 @@ def _is_legal(placement: str) -> bool:
         return False
 
 
+DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "downloads")
+
+
 def download_if_url(src: str) -> str:
-    if not src.lower().startswith(("http://", "https://")):
-        return src
-    out = os.path.join(tempfile.gettempdir(), "rinden_video.mp4")
+    """A local file path is returned as-is; an http(s) URL is downloaded once
+    into downloads/ (named by a hash of the URL, so the same video is reused and
+    Rinden can see/delete it). Other schemes (file://, ftp://, …) are refused —
+    yt-dlp would otherwise happily read local files off disk."""
+    low = src.lower()
+    if not low.startswith(("http://", "https://")):
+        if "://" in low:
+            raise ValueError("kun http(s)-lenker eller lokale filstier er tillatt")
+        return src  # local file path
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+    out = os.path.join(DOWNLOAD_DIR, hashlib.sha1(src.encode("utf-8")).hexdigest()[:12] + ".mp4")
+    if os.path.exists(out) and os.path.getsize(out) > 0:
+        print("bruker tidligere nedlastet video", file=sys.stderr)
+        return out
     print("laster ned video …", file=sys.stderr)
     subprocess.run(
         [sys.executable, "-m", "yt_dlp", "--js-runtimes", "node",
@@ -51,19 +65,40 @@ def download_if_url(src: str) -> str:
 
 
 def sample_frames(path: str, interval: float, start: float, end: float | None):
+    """Yield (timestamp, frame) at ~`interval` seconds apart.
+
+    Reads SEQUENTIALLY with grab()/retrieve() instead of POS_MSEC seeking:
+    time-based seeking is unreliable on YouTube DASH-mp4 and returns empty
+    frames that crash cvtColor downstream (assertion !_src.empty()). Grabbing
+    every frame and decoding only at sample points is seek-free and robust.
+    Empty/garbage frames are skipped, never yielded.
+    """
     cap = cv2.VideoCapture(path)
     if not cap.isOpened():
         raise RuntimeError(f"kan ikke åpne video: {path}")
-    dur = cap.get(cv2.CAP_PROP_FRAME_COUNT) / max(cap.get(cv2.CAP_PROP_FPS), 1)
-    t = start
-    stop = min(end, dur) if end else dur
-    while t <= stop:
-        cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000.0)
-        ok, frame = cap.read()
-        if ok:
-            yield t, frame
-        t += interval
-    cap.release()
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    if not fps or fps <= 0 or fps != fps:  # 0 / NaN guard
+        fps = 25.0
+    step = max(1, int(round(interval * fps)))
+    start_frame = max(0, int(round(start * fps)))
+    end_frame = int(round(end * fps)) if end else None
+    idx = -1
+    try:
+        while True:
+            if not cap.grab():
+                break
+            idx += 1
+            if idx < start_frame:
+                continue
+            if end_frame is not None and idx > end_frame:
+                break
+            if (idx - start_frame) % step != 0:
+                continue
+            ok, frame = cap.retrieve()
+            if ok and frame is not None and getattr(frame, "size", 0) > 0:
+                yield idx / fps, frame
+    finally:
+        cap.release()
 
 
 def pick_orientation(frames, templates) -> str:
