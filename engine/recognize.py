@@ -206,17 +206,33 @@ def image_grid_svm(img: np.ndarray, bbox) -> list[list[str]]:
     return grid
 
 
+_EMPTY_PLACEMENT = "8/8/8/8/8/8/8/8"
+
+
 def recognize_placement(img: np.ndarray, orientation: str = "white",
                         templates: dict | None = None) -> str:
-    bbox = detect_board_bbox(img)
-    if not valid_bbox(bbox, img):               # no board in this frame -> empty
-        return "8/8/8/8/8/8/8/8"
-    if _svm():                                  # trained classifier preferred
-        grid = image_grid_svm(img, bbox)
-    else:                                        # fallback: template IoU
-        templates = templates or _load_templates()
-        grid = image_grid(img, bbox, templates)
-    return placement_from_grid(grid, orientation)
+    """Board -> FEN placement. NEVER raises: any error (or a frame with no
+    board) yields the empty placement, which the pipeline treats as illegal and
+    skips. So a single bad frame can never crash a whole video run.
+
+    The trained SVM is preferred, but on a rendering it was not trained for it
+    reads the board (almost) empty; when it sees fewer than 4 pieces we fall back
+    to the theme-agnostic template matcher instead of trusting an empty board."""
+    try:
+        bbox = detect_board_bbox(img)
+        if not valid_bbox(bbox, img):
+            return _EMPTY_PLACEMENT
+        grid = None
+        if _svm():
+            grid = image_grid_svm(img, bbox)
+            if sum(1 for row in grid for ch in row if ch != ".") < 4:
+                grid = None                     # SVM saw ~nothing -> unfamiliar set
+        if grid is None:
+            templates = templates or _load_templates()
+            grid = image_grid(img, bbox, templates)
+        return placement_from_grid(grid, orientation)
+    except Exception:                            # noqa: BLE001 — robustness over detail
+        return _EMPTY_PLACEMENT
 
 
 def _ascii(placement: str) -> str:
