@@ -11,6 +11,9 @@ venv/
 .env.*
 !.env.example
 
+# Per-video bootstrap models (self-calibration, regenerated on demand)
+engine/models/bootstrap_*.xml
+
 # Downloaded media & generated frames (large, not source)
 *.mp4
 *.mkv

@@ -30,11 +30,18 @@ ROOT-FIKS 2026-09-17 (cvtColor `!_src.empty()`-krasjklassen — to årsaker):
   filtreres av `_is_legal`) + tom-input-vakt i `features.square_to_feature` (zero-vektor).
   Bekreftet: hele video (540 frames) + eksakt URL-vei via server = HTTP 200, ingen krasj.
 
-MÅLT BEGRENSNING (uendret vegg):
-- Video→PGN-gjenkjenningen generaliserer ikke til vilkårlige renderinger og er fanget i en
-  catch-22 (gjenkjenning best på lynparti, kjeding krever rolig video). På typiske
-  repertoar-videoer leser den brettet tomt (`moves=0`) — nå returnerer den *pent*, ikke krasj.
-  **PGN-import er den pålitelige veien.**
+MÅLT BEGRENSNING — video→PGN trekk-rekonstruksjon (grundig undersøkt 2026-09-17, 7 metoder):
+- Gjenkjenning er FAKTISK korrekt på rene, stabile frames (verifisert rute-for-rute mot bildet).
+- Men to stablede vegger hindrer trekk-KJEDING: (1) per-rute ~98% -> 0.98^64 ≈ 27% lovlige brett;
+  systematisk flimmer på løper-på-mørk/highlightet rute (~50% feil, ikke tilfeldig). (2) Video-
+  strukturen: undervisnings-/lynpartivideoer dveler på stillinger og hopper ikke-lineært, så
+  det finnes ingen ren move-by-move-strøm å hente ut. `moves=0, gaps=alle` gjennomgående.
+- Testet og MÅLT som utilstrekkelig: rå-SVM, template-IoU, bootstrap-SVM (`engine/bootstrap.py`,
+  per-video selv-kalibrering fra auto-verifiserte lovlige frames — 98% hold-out men løfter ikke
+  brett-lovlig-raten), eksakt-sprite-matching, helbrett-voting, per-rute temporal-mode-denoising.
+- KONKLUSJON: pålitelig auto video→PGN er et forskningsproblem, ikke løst. Neste nivå ville kreve
+  trent CNN på Lichess-brikkesett + håndtering av ikke-lineær video — eget prosjekt, usikkert.
+  **PGN-import er den pålitelige veien; video er «best effort, krasjer aldri».**
 
 ## NESTE STEG
 1. (Valgfritt) Per-rendering-trening akkumulert av pipelinen for å knekke video 5 — eller
