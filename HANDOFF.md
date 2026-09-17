@@ -21,10 +21,14 @@ FERDIG og verifisert:
 - **Trent gjenkjenner** (`engine/models/piece_svm.xml`) — video 1 = 94.4% hold-out
   (committet i git; Rinden får den ved nedlasting).
 
-ROOT-FIKS 2026-09-17:
-- `sample_frames` brukte `POS_MSEC`-seeking → ødelagt på YouTube DASH-mp4 → tom frame →
-  `cvtColor` assertion-krasj (`!_src.empty()`). Byttet til sekvensiell `grab()/retrieve()`
-  + tom-frame-vakt. Bekreftet: ingen krasj på video som tidligere kræsjet.
+ROOT-FIKS 2026-09-17 (cvtColor `!_src.empty()`-krasjklassen — to årsaker):
+- (a) `sample_frames` brukte `POS_MSEC`-seeking → ødelagt på DASH-mp4 → tom frame.
+  Byttet til sekvensiell `grab()/retrieve()` + tom-frame-vakt.
+- (b) `detect_board_bbox` gir degenerert bbox på board-løse frames (intro/prate) →
+  `split_squares` lager 0-størrelse ruter → `square_to_feature`/`cvtColor`-krasj.
+  Fiks: `valid_bbox()`-vakt i `recognize_placement` (board-løs frame → tom stilling,
+  filtreres av `_is_legal`) + tom-input-vakt i `features.square_to_feature` (zero-vektor).
+  Bekreftet: hele video (540 frames) + eksakt URL-vei via server = HTTP 200, ingen krasj.
 
 MÅLT BEGRENSNING (uendret vegg):
 - Video→PGN-gjenkjenningen generaliserer ikke til vilkårlige renderinger og er fanget i en

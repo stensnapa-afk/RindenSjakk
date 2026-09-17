@@ -21,7 +21,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from engine.board_detect import detect_board_bbox, split_squares, square_has_piece, _center
+from engine.board_detect import detect_board_bbox, split_squares, square_has_piece, _center, valid_bbox
 
 TEMPLATE_DIR = os.path.join(os.path.dirname(__file__), "templates")
 CANON = 96  # canonical match size
@@ -209,6 +209,8 @@ def image_grid_svm(img: np.ndarray, bbox) -> list[list[str]]:
 def recognize_placement(img: np.ndarray, orientation: str = "white",
                         templates: dict | None = None) -> str:
     bbox = detect_board_bbox(img)
+    if not valid_bbox(bbox, img):               # no board in this frame -> empty
+        return "8/8/8/8/8/8/8/8"
     if _svm():                                  # trained classifier preferred
         grid = image_grid_svm(img, bbox)
     else:                                        # fallback: template IoU

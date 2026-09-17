@@ -16,10 +16,16 @@ CROP_FRAC = 0.86     # trim grid-line bleed + edge coordinate labels
 CANON = 64
 
 _HOG = cv2.HOGDescriptor((CANON, CANON), (16, 16), (8, 8), (8, 8), 9)
+# Fixed HOG length, so an empty/garbage square yields a well-formed zero vector
+# instead of crashing cvtColor (assertion !_src.empty()).
+_FEAT_LEN = int(_HOG.compute(np.zeros((CANON, CANON), np.uint8)).size)
 
 
 def square_to_feature(bgr_square: np.ndarray) -> np.ndarray:
-    """Centre-crop -> grayscale -> 64x64 -> HOG (contrast-normalised => theme-robust)."""
+    """Centre-crop -> grayscale -> 64x64 -> HOG (contrast-normalised => theme-robust).
+    Empty input (e.g. a bad board bbox produced a zero-size crop) -> zero vector."""
+    if bgr_square is None or getattr(bgr_square, "size", 0) == 0:
+        return np.zeros(_FEAT_LEN, np.float32)
     h, w = bgr_square.shape[:2]
     my, mx = int(h * (1 - CROP_FRAC) / 2), int(w * (1 - CROP_FRAC) / 2)
     c = bgr_square[my:h - my, mx:w - mx]

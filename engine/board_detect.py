@@ -57,6 +57,18 @@ def detect_board_bbox(img: np.ndarray, bright_thr: float = 95.0) -> tuple[int, i
     return x0, y0, x0 + side, y0 + side
 
 
+def valid_bbox(bbox: tuple[int, int, int, int], img: np.ndarray) -> bool:
+    """True if the detected board box is plausibly a real board and inside the
+    frame. A board-less frame (intro / talking head) yields a tiny degenerate
+    run; splitting that gives zero-size squares that crash cvtColor downstream.
+    A real Lichess board is a large square (~700px on 720p), so a modest floor
+    rejects the garbage without touching real boards."""
+    x0, y0, x1, y1 = bbox
+    h, w = img.shape[:2]
+    side = min(x1 - x0, y1 - y0)
+    return side >= 96 and 0 <= x0 < x1 <= w and 0 <= y0 < y1 <= h
+
+
 def split_squares(img: np.ndarray, bbox: tuple[int, int, int, int]) -> list[list[np.ndarray]]:
     """Return an 8x8 grid of square sub-images, row 0 = top of the image."""
     x0, y0, x1, y1 = bbox
