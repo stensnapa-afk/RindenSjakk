@@ -1,39 +1,51 @@
-# RindenSjakk — HANDOFF (sesjon 2026-09-16)
+# RindenSjakk — HANDOFF
 
-Fortsettes i ny sesjon. Denne fila = sannhet for hvor vi står.
+Denne fila = sannhet for hvor vi står.
 
-## Status
-FERDIG og virker:
-- **Viewer** (`viewer/`, start med `start.bat`) — brett, variant-tre, autospill, bibliotek m/rediger/slett, notater, lenke-felt. Lokal, localStorage.
-- **Tre-motor** (`engine/fen_tree.py`) — FEN-tidslinje → PGN-tre, takeback=variant, DFS m/node-budsjett, `root_fen`-seed. 4 tester grønne (`python -m unittest discover -s tests`).
-- **Trent gjenkjenner** (`engine/train_real.py` → `engine/models/piece_svm.xml`, HOG+SVM i OpenCV) — **video 1 = 94.4% hold-out, alle test-frames lovlige+korrekte.**
-- **Selv-installer** (`install.bat`/`hent.bat`), public repo `stensnapa-afk/RindenSjakk`.
+## Status (oppdatert 2026-09-17)
 
-BLOKKERT (der vi jobbet sist):
-- Gjenkjenneren generaliserer IKKE til video 5s rendering (leser alt tomt — majoritetsklasse-bias for out-of-distribution). Bekreftet at det IKKE er brett-deteksjon (bbox-sveip: ingen boks gir brikker). Ingen startstilling i rep5 å auto-merke.
+FERDIG og verifisert:
+- **Viewer** (`viewer/`) — brett, variant-tre, autospill, bibliotek (rediger/slett/gjør-til-
+  hovedlinje), notater. Lokal, localStorage. Kjøres via `start.bat` (server) eller ved å
+  åpne `viewer/index.html` direkte.
+- **Klientside PGN-import (NY — hovedfunksjon):** `viewer/chess.js` (komplett lovlig-trekk-
+  motor i vanilla JS — perft 20/400/8902 + Kiwipete 48/2039 verifisert) + `viewer/pgn.js`
+  (PGN→variant-tre: varianter, kommentarer, flere partier, FEN-setup, crammed tags).
+  Testet ende-til-ende i nettleser. Lim inn PGN eller åpne `.pgn`-fil.
+- **Lokal server** `server.py` (kun stdlib): serverer vieweren + `POST /api/extract`
+  (video→tre) + `GET /api/storage` / `POST /api/storage/delete` (Lagring-panel).
+- **Lagring-panel (NY):** «Lagring …»-knapp viser nedlastede videoer med størrelse; slett
+  enkeltvis eller alle. Nedlasting går til synlig `downloads/<hash>.mp4` (gjenbrukes ved
+  samme URL). Sti-vakt + `file://`-blokk + body-cap (Gemini-audit-herding).
+- **Motor-tre** (`engine/fen_tree.py`) — 4 enhetstester grønne.
+- **Trent gjenkjenner** (`engine/models/piece_svm.xml`) — video 1 = 94.4% hold-out
+  (committet i git; Rinden får den ved nedlasting).
 
-## NESTE STEG (start her i morgen)
-Kjør den **avbrutte** multi-rendering-treningen (composite cburnett på EKTE video-5 tomme bakgrunner — pålitelige etiketter, ingen håndtranskribering):
+ROOT-FIKS 2026-09-17:
+- `sample_frames` brukte `POS_MSEC`-seeking → ødelagt på YouTube DASH-mp4 → tom frame →
+  `cvtColor` assertion-krasj (`!_src.empty()`). Byttet til sekvensiell `grab()/retrieve()`
+  + tom-frame-vakt. Bekreftet: ingen krasj på video som tidligere kræsjet.
 
-```
-cd C:/Claude-AI/projects/rindensjakk
-python engine/train_multi.py --label_glob "C:/temp/snapasjakk-spike/v1f/v_*.png" --bg_glob "C:/temp/snapasjakk-spike/rep5sp/s_*.png"
-# så test på held-out video-5-frames (rep5scan/r_90,r_120,r_240): filled>6 og valid=True = gjennombrudd
-```
-Hvis dette IKKE cracker video 5 → vurder liten CNN (onnxruntime) eller verifisert håndmerking av 2-3 rep5-frames (kryssjekk mot legalitet + kjent Benko-linje).
+MÅLT BEGRENSNING (uendret vegg):
+- Video→PGN-gjenkjenningen generaliserer ikke til vilkårlige renderinger og er fanget i en
+  catch-22 (gjenkjenning best på lynparti, kjeding krever rolig video). På typiske
+  repertoar-videoer leser den brettet tomt (`moves=0`) — nå returnerer den *pent*, ikke krasj.
+  **PGN-import er den pålitelige veien.**
 
-Etter gjenkjenning virker på video 5:
-1. Ende-til-ende på repertoar-video (rolige trekk) → vis PGN-tre (trekk-kjeding funker på rolige sekvenser, IKKE lynparti @2fps).
-2. Koble motor↔viewer (lokal server-endepunkt så «Hent trekk» faktisk kjører).
-3. Slank modellen (72MB RBF → lineær SVM).
+## NESTE STEG
+1. (Valgfritt) Per-rendering-trening akkumulert av pipelinen for å knekke video 5 — eller
+   dropp auto-video og stå på PGN-import som hovedvei.
+2. (Valgfritt) PGN-eksport fra vieweren (nå kun import).
+3. Slank modellen (72MB RBF → lineær SVM) hvis video-veien skal videreføres.
 
-## Testdata (i C:\temp\snapasjakk-spike\ — kan re-hentes om slettet)
-- video 1 (lynparti, gjenkjenning VIRKER): `vid720.mp4` = YouTube `3YvsmepLK7s`. Frames: `v1f/`, `f_180/300/540.png`.
-- video 5 (repertoar/explorer, gjenkjenning FEILER): `rep5.mp4` = YouTube `HalrW48gtOQ`. Frames: `rep5sp/`, `rep5scan/`.
-- Re-hent: `python -m yt_dlp --js-runtimes node -f 136 -o vid720.mp4 "https://www.youtube.com/watch?v=3YvsmepLK7s"` (Node kreves som JS-runtime!). Frames: `ffmpeg -ss <t> -i <mp4> -vf fps=<n> out_%03d.png`.
+## Testdata (C:\temp\snapasjakk-spike\ — kan re-hentes)
+- video 1 (gjenkjenning VIRKER): `vid720.mp4` = YT `3YvsmepLK7s`. Frames: `v1f/`.
+- video 5 (gjenkjenning FEILER): `rep5.mp4` = YT `HalrW48gtOQ`. Frames: `rep5sp/`, `rep5scan/`.
+- Re-hent: `python -m yt_dlp --js-runtimes node -f 136 -o vid720.mp4 "https://www.youtube.com/watch?v=3YvsmepLK7s"` (Node kreves!).
 
 ## Nøkkelfakta
 - Graif spiller FLIPPET brett → `--orientation black`.
-- yt-dlp trenger `--js-runtimes node` (ellers bare m3u8/heng).
-- cv2 POS_MSEC-seeking henger på DASH-mp4 → bruk ffmpeg fps-uttrekk.
+- yt-dlp trenger `--js-runtimes node`.
+- Frame-uttrekk: sekvensiell grab/retrieve (IKKE POS_MSEC — kræsjer på DASH).
+- Sjakkmotoren kan røyktestes uten nettleser: `node -e "require('./viewer/chess.js');require('./viewer/pgn.js');..."`.
 - Full kontekst/mønstre: `blueprints/rindensjakk.md`, minne `project_rindensjakk.md`.

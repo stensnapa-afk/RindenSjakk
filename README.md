@@ -1,80 +1,135 @@
-RindenSjakk
+# RindenSjakk
 
-Trekk ut sjakkåpninger/repertoar fra video (f.eks. *The Gambit Man* på Lichess) og
-lagre dem som **PGN repertoar-tre** — hovedlinje + variantene som vises i videoen.
+Et **lokalt sjakk-repertoarverktøy** for Windows. Bygg og studer åpnings­repertoar som
+et **variant-tre** (hovedlinje + varianter), med brett, autospill, notater og bibliotek.
+Alt kjører på din egen PC — ingen sky, ingen konto, ingen internett nødvendig for å bruke det.
 
-Analogt med SnapaOppskrift (video → oppskrift), men sjakk er *deterministisk*: en
-regelmotor (`python-chess`) feilretter alt, så ulovlige avlesninger kan ikke passere.
+To måter å få repertoar inn:
 
-**Portabel, lokal-først, kun PC:** ingen sky, ingen hosting, ingen mobil/PWA. Kjører på
-hvilken som helst Windows-PC med Python. Lagring blir lokale PGN-filer (+ SQLite),
-viewer blir en desktop-flate (lokal nettleser-side verktøyet åpner, evt. lett
-desktop-vindu).
+1. **Importer PGN** — lim inn PGN eller åpne en `.pgn`-fil. Håndterer varianter,
+   kommentarer, flere partier og oppsett fra en gitt stilling (FEN). *Dette er den
+   pålitelige hovedveien* og virker med alt fra Lichess-studier, ChessBase, Chessable, osv.
+2. **Fra video (eksperimentelt)** — lim inn en YouTube-lenke til en åpningsvideo, så
+   prøver motoren å lese brettet frame for frame. Se ærlig status nederst.
 
-## Arkitektur (faser)
+---
 
-| Fase | Innhold | Status |
-|---|---|---|
-| 0 | Deterministisk kjerne: FEN-tidslinje → PGN-tre + regelmotor-validering | ✅ ferdig, testet |
-| 1 | Inntak: `yt-dlp` (video/beskrivelse/undertekst) + lichess-study-snarvei | planlagt |
-| 2 | Brett-CV: `ffmpeg`-frames → lichess-brett → brikke-template-match → FEN/frame | planlagt |
-| 3 | Fusjon: lokal Whisper (valgfri) muntlig notasjon × CV → regelmotor | planlagt |
-| 4 | Desktop-viewer (brett + variant-tre + bibliotek med rediger/slett, lagres lokalt) | ✅ demo kjører |
-| 5 | Koble motoren til vieweren (video → tre → viewer) + pakking `.exe` (PyInstaller) | planlagt |
+## Installasjon (én gang)
 
-## Installasjon hjemme (én gang)
+Alt er lokalt. Du trenger **Python 3** (og **Node.js** hvis du vil bruke video-import —
+`yt-dlp` bruker Node for å laste ned fra YouTube).
 
-Alt kjører lokalt på din egen Windows-PC — ingen sky, ingen konto.
+1. **Hent koden:** grønn `Code`-knapp på GitHub → `Download ZIP` → pakk ut.
+   Eller: `git clone https://github.com/stensnapa-afk/RindenSjakk`
+2. **Dobbeltklikk `install.bat`.** Den sjekker at Python 3 (og Node.js) finnes — åpner
+   nedlastingssiden om noe mangler (husk å krysse av *«Add python.exe to PATH»*) — lager
+   et lokalt miljø (`.venv`) og installerer avhengighetene (OpenCV, python-chess, yt-dlp).
 
-1. **Last ned prosjektet:** grønn `Code`-knapp på GitHub → `Download ZIP` → pakk ut.
-   (Eller `git clone https://github.com/stensnapa-afk/RindenSjakk`.)
-2. **Dobbeltklikk `install.bat`.** Den sjekker at Python 3 og Node.js finnes
-   (åpner nedlastingssiden om noe mangler), lager et lokalt miljø og installerer alt.
-3. Ferdig. Deretter:
-   - **`start.bat`** → åpner appen (brett + repertoar) i nettleseren.
-   - **`hent.bat "https://youtu.be/…"`** → trekker trekk ut av en video til PGN.
+Avhengigheter (se `requirements.txt`): `opencv-python`, `chess`, `yt-dlp`, `numpy`.
 
-## Kjør vieweren (lokalt, kun PC)
+---
 
-Dobbeltklikk **`start.bat`** (krever Python 3) — åpner http://localhost:8777/ i nettleseren.
-Eller manuelt:
+## Starte appen
 
-```bash
-cd viewer
-python -m http.server 8777
-# åpne http://localhost:8777/
-```
+**Dobbeltklikk `start.bat`.** Den starter en lokal server og åpner
+`http://localhost:8777/` i nettleseren automatisk. Lukk konsollvinduet for å stoppe.
 
-Vieweren er ren statisk HTML/JS uten avhengigheter eller nett-tilgang. Alt du lagrer
-(navn, notater, sletting av varianter) ligger i nettleserens `localStorage` på denne
-maskinen. Seed-data genereres fra motoren med `python engine/tree_json.py`.
+> Vil du bare studere PGN uten å installere noe? Åpne `viewer/index.html` direkte i
+> nettleseren. Da virker alt unntatt video-import (som trenger serveren + Python).
 
-## Kjernens idé (Fase 0)
+---
 
-Brett-CV kan bare lese *brikkeplassering* pr. frame. Motoren utleder tur/rokade/en
-passant ved å spille kun lovlige trekk fra start og matche den som gir observert
-plassering. Repertoar-treet faller ut mekanisk: når posisjonen **gjentar en tidligere
-stilling** og et *annet* trekk følger → det er en variant fra den noden.
+## Bruk
 
-## Kom i gang
+### Importer PGN (hovedfunksjonen)
+1. Klikk **«Importer PGN»** i biblioteket.
+2. Lim inn PGN i tekstfeltet, **eller** klikk *«Åpne .pgn-fil …»*.
+3. **«Legg til»**. Åpningen dukker opp i biblioteket med hele variant-treet.
+
+Støtter:
+- Varianter i parentes: `1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 (3... Nf6 4. O-O) 4. Ba4`
+- Kommentarer i `{ ... }` (festes på trekket og vises under brettet)
+- Flere partier i samme fil (blir flere åpninger)
+- Oppsett fra en gitt stilling (`[FEN "…"]` / `[SetUp "1"]`)
+- Bare en trekkrekke uten tagger: `e4 e5 Nf3 Nc6 Bb5`
+
+Ulovlige/ugjenkjennelige trekk hoppes over, og du får beskjed om hvor mange.
+
+### Bygge og studere
+- **+ Ny** — tom åpning fra startstillingen.
+- Klikk et trekk i trelista for å hoppe dit; **⏮ ◀ ▶** og piltaster navigerer;
+  **▶ Spill av** spiller gjennom hovedlinjen automatisk.
+- **⇅ Snu brett** — se fra hvit eller svart side.
+- **Notat** — kommentar på det valgte trekket. **Slett variant** / **Gjør til hovedlinje**
+  rydder treet. Fritekst-**Notater** per åpning lagres automatisk.
+- I biblioteket: **✎** gir nytt navn, **🗑** sletter (klikk to ganger for å bekrefte).
+
+### Fra video (eksperimentelt)
+- Lim en YouTube-lenke i **«Video → repertoar»**-feltet og trykk **«Hent trekk»**.
+  Appen laster ned videoen, leser brettet frame for frame og prøver å bygge treet.
+- Kommandolinje-variant: `hent.bat "https://youtu.be/…"` (flagg: `--start`, `--end`,
+  `--interval`, `--orientation auto|white|black`, `--out fil.pgn`).
+
+**Ærlig status på video:** brikkegjenkjenningen er trent per video-rendering og
+generaliserer ikke til vilkårlige videoer. Den er dessuten fanget i en catch-22 —
+gjenkjenning er best på raske lynpartier, men trekk-kjeding krever rolige sekvenser.
+På typiske repertoar-/explorer-videoer leser den ofte brettet tomt og finner ingen
+trekk. Verktøyet sier fra ærlig når det ikke fikk til noe. **Bruk PGN-import for
+pålitelig resultat.**
+
+---
+
+## Hvor lagres dataene?
+
+I nettleserens `localStorage` på denne maskinen (nøkkel `rinden.repertoires.v1`) — knyttet
+til hvordan du åpner appen. Ingenting sendes noe sted. Vil du dele et repertoar, eksporter
+det som PGN fra kilden din og importer på den andre maskinen.
+
+---
+
+## Under panseret
+
+- **`viewer/`** — statisk HTML/JS, ingen npm-avhengigheter:
+  - `chess.js` — komplett lovlig-trekk-motor i vanilla JS (FEN, SAN, rokade, en passant,
+    promotering). Verifisert med perft (20 / 400 / 8902 fra start; Kiwipete 48 / 2039).
+  - `pgn.js` — PGN → variant-tre (`{san, uci, fen, children}`).
+  - `app.js` / `index.html` / `samples.js` — brett, tre, bibliotek, seed-data.
+- **`engine/`** — Python video-pipeline:
+  - `process_video.py` — video → FEN/frame → lovlige stillinger → `fen_tree` → PGN-tre.
+  - `fen_tree.py` — deterministisk kjerne: brikkeplassering-tidslinje → PGN-tre
+    (takeback = variant, DFS med node-budsjett). Enhetstestet.
+  - `recognize.py` / `board_detect.py` — brett-lokalisering + brikkegjenkjenning
+    (trent HOG+SVM i `engine/models/piece_svm.xml`).
+  - `tree_json.py` — eksporterer trær til viewerens JSON-form.
+- **`server.py`** — liten lokal server (kun stdlib): serverer vieweren og kjører
+  video-uttrekk på `POST /api/extract`. Motoren importeres først når den trengs, så
+  vieweren virker selv uten OpenCV installert.
+
+### Utvikling / tester
 
 ```bash
 python -m pip install -r requirements.txt
-
-# Enhetstester
-python -m unittest discover -s tests -v
-
-# Demo: Benko-fragment med én variant → skriver engine/demo_benko.pgn
-python engine/demo_benko.py
-
-# Egen tidslinje (én brikkeplassering / FEN-felt-1 per linje)
-python engine/fen_tree.py placements.txt > repertoire.pgn
+python -m unittest discover -s tests -v      # motor-enhetstester
+python engine/tree_json.py                    # regenerer viewer/samples.js
 ```
 
-## Struktur
+Sjakkmotoren i JS kan røyktestes uten nettleser:
+
+```bash
+node -e "require('./viewer/chess.js'); require('./viewer/pgn.js'); \
+  console.log(RindenPGN.parse('1. e4 e5 2. Nf3 *').reps[0].root.children[0].san)"  # -> e4
+```
+
+---
+
+## Filoversikt
 
 ```
-engine/fen_tree.py     # kjernen: build_tree(placements) -> (chess.pgn.Game, stats)
-engine/demo_benko.py   # demo som skriver demo_benko.pgn
-tests/test_fen_tree.py # enhetstester (mainline, variant, brolegging, lovlighet)
+install.bat        # engangs-oppsett (Python/Node + .venv + avhengigheter)
+start.bat          # start appen (lokal server + nettleser)
+hent.bat "URL"     # video → PGN på kommandolinjen
+server.py          # lokal server: viewer + /api/extract
+viewer/            # brett + variant-tre + PGN-import (statisk, ingen deps)
+engine/            # video-pipeline + deterministisk tre-motor (Python)
+tests/             # enhetstester for tre-motoren
 ```
