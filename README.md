@@ -21,21 +21,30 @@ Alt er lokalt. Du trenger **Python 3** (og **Node.js** hvis du vil bruke video-i
 
 1. **Hent koden:** grønn `Code`-knapp på GitHub → `Download ZIP` → pakk ut.
    Eller: `git clone https://github.com/stensnapa-afk/RindenSjakk`
-2. **Dobbeltklikk `install.bat`.** Den sjekker at Python 3 (og Node.js) finnes — åpner
-   nedlastingssiden om noe mangler (husk å krysse av *«Add python.exe to PATH»*) — lager
-   et lokalt miljø (`.venv`) og installerer avhengighetene (OpenCV, python-chess, yt-dlp).
+2. Kjør installasjonen for din plattform:
+   - **Windows:** dobbeltklikk **`install.bat`**. Husk å krysse av *«Add python.exe to PATH»*
+     hvis den ber deg installere Python.
+   - **Mac:** dobbeltklikk **`install.command`**. Første gang blokkerer macOS ukjente scripts —
+     da: **høyreklikk (Ctrl-klikk) → Åpne → Åpne**. (Alternativt fjern karantene i Terminal:
+     `xattr -d com.apple.quarantine *.command`.)
 
-Avhengigheter (se `requirements.txt`): `opencv-python`, `chess`, `yt-dlp`, `numpy`.
+   Installasjonen sjekker at **Python 3** og **Node.js** finnes (åpner nedlastingssiden om noe
+   mangler), lager et lokalt miljø (`.venv`) og installerer avhengighetene.
+
+Avhengigheter (se `requirements.txt`): `opencv-python-headless`, `chess`, `yt-dlp`, `numpy`.
+Node.js trengs kun for video-nedlasting (yt-dlp bruker det som JS-runtime).
 
 ---
 
 ## Starte appen
 
-**Dobbeltklikk `start.bat`.** Den starter en lokal server og åpner
-`http://localhost:8777/` i nettleseren automatisk. Lukk konsollvinduet for å stoppe.
+Dobbeltklikk **`start.bat`** (Windows) eller **`start.command`** (Mac). Den starter en lokal
+server og åpner `http://localhost:8777/` i nettleseren automatisk. Lukk vinduet for å stoppe.
+Video-uttrekk fra kommandolinjen: **`hent.bat "…"`** (Windows) / **`hent.command`** (Mac).
 
 > Vil du bare studere PGN uten å installere noe? Åpne `viewer/index.html` direkte i
-> nettleseren. Da virker alt unntatt video-import (som trenger serveren + Python).
+> nettleseren (funker på Windows, Mac og Linux). Da virker alt unntatt video-import
+> (som trenger serveren + Python).
 
 ---
 
@@ -125,9 +134,9 @@ node -e "require('./viewer/chess.js'); require('./viewer/pgn.js'); \
 ## Filoversikt
 
 ```
-install.bat        # engangs-oppsett (Python/Node + .venv + avhengigheter)
-start.bat          # start appen (lokal server + nettleser)
-hent.bat "URL"     # video → PGN på kommandolinjen
+install.bat / install.command   # engangs-oppsett (Windows / Mac): Python/Node + .venv + deps
+start.bat   / start.command     # start appen (lokal server + nettleser)
+hent.bat    / hent.command      # video → PGN på kommandolinjen
 server.py          # lokal server: viewer + /api/extract
 viewer/            # brett + variant-tre + PGN-import (statisk, ingen deps)
 engine/            # video-pipeline + deterministisk tre-motor (Python)
