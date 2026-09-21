@@ -56,11 +56,23 @@ def download_if_url(src: str) -> str:
         print("bruker tidligere nedlastet video", file=sys.stderr)
         return out
     print("laster ned video …", file=sys.stderr)
-    subprocess.run(
-        [sys.executable, "-m", "yt_dlp", "--js-runtimes", "node",
+    # --no-playlist: en YouTube-lenke bærer ofte &list=… (spilleliste). Uten dette
+    # flagget laster yt-dlp ned HELE spillelista til samme fil, og returnerer exit 1
+    # dersom BARE ÉN av videoene feiler (region-sperret, medlems-only, slettet, mangler
+    # format) — selv om mål-videoen gikk fint. Vi vil alltid ha kun den ene lenken.
+    proc = subprocess.run(
+        [sys.executable, "-m", "yt_dlp", "--no-playlist", "--js-runtimes", "node",
          "-f", "bv*[height<=720][ext=mp4]/b[height<=720]", "-o", out, src],
-        check=True,
+        capture_output=True,
+        text=True,
     )
+    if proc.returncode != 0:
+        # Løft yt-dlp sin FAKTISKE feilårsak videre (stderr), ikke bare den ugjennom-
+        # trengelige "returned non-zero exit status 1". ERROR-linjer først; ellers hale.
+        err = (proc.stderr or "").strip()
+        lines = [ln for ln in err.splitlines() if "ERROR" in ln] or err.splitlines()[-8:]
+        detail = "\n".join(lines).strip() or "ukjent feil (ingen stderr)"
+        raise RuntimeError("nedlasting feilet (yt-dlp):\n" + detail)
     return out
 
 
