@@ -3,6 +3,7 @@ chess>=1.11                    # regelmotor: FEN-tidslinje -> lovlig PGN-tre (im
 opencv-python-headless>=4.10  # brett-lokalisering + brikkegjenkjenning
 numpy>=1.26                   # bilde/frame-matte
 yt-dlp>=2026.8                # last ned YouTube-video (krever Node.js som JS-runtime)
+certifi>=2024.0               # CA-bundle for TLS: fikser [SSL: CERTIFICATE_VERIFY_FAILED] på Windows
 
 # Valgfri, senere fase (ikke nødvendig for å kjøre):
 #   faster-whisper            # Fase 3: lokal tale-til-tekst som kryssjekk (ingen sky-GPU)

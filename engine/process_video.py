@@ -40,6 +40,16 @@ def _is_legal(placement: str) -> bool:
 DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "downloads")
 
 
+def _is_cert_error(stderr: str | None) -> bool:
+    """Er yt-dlp-feilen en TLS/sertifikat-verifiseringsfeil? Da (og bare da) er det
+    trygt å falle tilbake til --no-check-certificates for nedlastingen."""
+    s = (stderr or "").upper()
+    return ("CERTIFICATE_VERIFY_FAILED" in s
+            or "UNABLE TO GET LOCAL ISSUER CERTIFICATE" in s
+            or "SSL: CERTIFICATE" in s
+            or "CERTIFICATE VERIFY FAILED" in s)
+
+
 def download_if_url(src: str) -> str:
     """A local file path is returned as-is; an http(s) URL is downloaded once
     into downloads/ (named by a hash of the URL, so the same video is reused and
@@ -60,12 +70,28 @@ def download_if_url(src: str) -> str:
     # flagget laster yt-dlp ned HELE spillelista til samme fil, og returnerer exit 1
     # dersom BARE ÉN av videoene feiler (region-sperret, medlems-only, slettet, mangler
     # format) — selv om mål-videoen gikk fint. Vi vil alltid ha kun den ene lenken.
-    proc = subprocess.run(
-        [sys.executable, "-m", "yt_dlp", "--no-playlist", "--js-runtimes", "node",
-         "-f", "bv*[height<=720][ext=mp4]/b[height<=720]", "-o", out, src],
-        capture_output=True,
-        text=True,
-    )
+    base_cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "--js-runtimes", "node",
+                "-f", "bv*[height<=720][ext=mp4]/b[height<=720]", "-o", out, src]
+
+    # SSL-cert-fella (Windows Python): [SSL: CERTIFICATE_VERIFY_FAILED] "unable to get
+    # local issuer certificate". yt-dlp verifiserer youtube.com mot certifi sin CA-bundle
+    # — men BARE hvis certifi er installert i venv'et. Mangler den, faller yt-dlp tilbake
+    # til OS-lageret, som Python på Windows ofte ikke finner et utsteder-sertifikat i.
+    # Rot-fiksen er derfor at certifi ligger i requirements.txt (installeres i venv);
+    # da virker verifisert nedlasting likt på alle maskiner etter `git pull`.
+    proc = subprocess.run(base_cmd, capture_output=True, text=True)
+
+    # Siste utvei: hvis det FORTSATT feiler på selve sertifikat-verifiseringen (f.eks.
+    # bedrifts-proxy/MITM, ødelagt cert-lager, eller certifi ikke installert ennå), prøv
+    # én gang UTEN verifisering. Kun ved påvist cert-feil — aldri generelt — og med
+    # tydelig advarsel i loggen.
+    if proc.returncode != 0 and _is_cert_error(proc.stderr):
+        print("ADVARSEL: SSL-verifisering feilet — prøver på nytt uten cert-sjekk "
+              "(--no-check-certificates). Kjør install.bat på nytt for å få certifi "
+              "og verifisert nedlasting.", file=sys.stderr)
+        proc = subprocess.run(base_cmd + ["--no-check-certificates"],
+                              capture_output=True, text=True)
+
     if proc.returncode != 0:
         # Løft yt-dlp sin FAKTISKE feilårsak videre (stderr), ikke bare den ugjennom-
         # trengelige "returned non-zero exit status 1". ERROR-linjer først; ellers hale.
