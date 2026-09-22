@@ -31,8 +31,13 @@ Alt er lokalt. Du trenger **Python 3** (og **Node.js** hvis du vil bruke video-i
    Installasjonen sjekker at **Python 3** og **Node.js** finnes (åpner nedlastingssiden om noe
    mangler), lager et lokalt miljø (`.venv`) og installerer avhengighetene.
 
-Avhengigheter (se `requirements.txt`): `opencv-python-headless`, `chess`, `yt-dlp`, `numpy`.
-Node.js trengs kun for video-nedlasting (yt-dlp bruker det som JS-runtime).
+Avhengigheter (se `requirements.txt`): `opencv-python-headless`, `chess`, `yt-dlp`, `numpy`,
+`certifi`. Node.js trengs kun for video-nedlasting (yt-dlp bruker det som JS-runtime).
+
+> **Oppdaterer du en eksisterende installasjon?** Etter `git pull` må du kjøre
+> **`install.bat`** (Windows) / **`install.command`** (Mac) på nytt, ellers får du ikke
+> de nye avhengighetene inn i `.venv`. Se *Feilsøking* nederst hvis video-nedlasting gir
+> en SSL-/sertifikatfeil.
 
 ---
 
@@ -128,6 +133,24 @@ Sjakkmotoren i JS kan røyktestes uten nettleser:
 node -e "require('./viewer/chess.js'); require('./viewer/pgn.js'); \
   console.log(RindenPGN.parse('1. e4 e5 2. Nf3 *').reps[0].root.children[0].san)"  # -> e4
 ```
+
+---
+
+## Feilsøking
+
+**Video-nedlasting feiler med `[SSL: CERTIFICATE_VERIFY_FAILED] unable to get local
+issuer certificate`.** `yt-dlp` verifiserer YouTube mot en CA-bundle (`certifi`), men
+finner den ikke — typisk fordi `certifi` mangler i miljøet (vanlig Windows-Python-felle).
+
+Slik fikser du det:
+1. **`git pull`** (henter siste kode).
+2. Kjør **`install.bat`** / **`install.command`** på nytt — det installerer `certifi` i
+   `.venv`, og verifisert nedlasting virker igjen.
+
+Appen har også en innebygd sikkerhets­net: om verifisering *fortsatt* feiler på selve
+sertifikatet (f.eks. ødelagt cert-lager eller proxy), prøver den nedlastingen én gang til
+uten sertifikatsjekk og skriver en tydelig **ADVARSEL** i loggen. Kjør reinstall (over) for
+å få tilbake full verifisert nedlasting.
 
 ---
 
