@@ -21,6 +21,25 @@ FERDIG og verifisert:
 - **Trent gjenkjenner** (`engine/models/piece_svm.xml`) — video 1 = 94.4% hold-out
   (committet i git; Rinden får den ved nedlasting).
 
+ROOT-FIKS 2026-10-01 (SSL `CERTIFICATE_VERIFY_FAILED` som OVERLEVDE certifi-fiksen):
+- Symptom: Rinden fikk fortsatt `[SSL: CERTIFICATE_VERIFY_FAILED] unable to get local
+  issuer certificate` på video-nedlasting, tross certifi i requirements (09-22-fiksen).
+- Ekte rot (Dags analyse, bekreftet): certifi HAR Googles røtter → feilen betyr at noe
+  MELLOM maskinen og YouTube bytter ut sertifikatet (antivirus/proxy/VPN = SSL-inspeksjon).
+  Inspeksjons-sertifikatet ligger i OS-nøkkelringen, IKKE i certifi — og yt-dlp validerer
+  mot certifi (ignorerer `SSL_CERT_FILE`), så det bet aldri.
+- Fiks: `truststore` i requirements + aktiveres via `_YT_BOOTSTRAP` i `process_video.py`.
+  Fordi yt-dlp kjøres som SUBPROCESS, starter vi den nå med `python -c <bootstrap>` som
+  kjører `truststore.inject_into_ssl()` FØR `yt_dlp.main()` — en inject i hovedprosessen
+  ville ikke nådd barnet. yt-dlp lager `ssl.SSLContext(PROTOCOL_TLS_CLIENT)` (verifisert i
+  networking/_helper.py:108) som truststore monkeypatcher → validering mot OS-nøkkelringen
+  (macOS Keychain / Windows store), der AV-/proxy-cert ALLEREDE ligger. Cross-platform, 3.10+.
+- Verifisert: `--simulate` via den faktiske `_YT_BOOTSTRAP` → rc=0, format 136 løst (samme
+  steg som kastet feilen for Rinden). Tester 4/4 grønne. `--no-check-certificates`-fallback
+  + certifi beholdt som sikkerhetsnett hvis truststore mangler (gammelt venv før reinstall).
+- Diagnose for Rinden (valgfri, bekrefter årsak): `curl -vs https://www.youtube.com -o
+  /dev/null 2>&1 | grep -i issuer` — annet enn Google Trust Services = SSL-inspeksjon.
+
 ROOT-FIKS 2026-09-17 (cvtColor `!_src.empty()`-krasjklassen — to årsaker):
 - (a) `sample_frames` brukte `POS_MSEC`-seeking → ødelagt på DASH-mp4 → tom frame.
   Byttet til sekvensiell `grab()/retrieve()` + tom-frame-vakt.

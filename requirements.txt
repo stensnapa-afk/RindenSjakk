@@ -3,7 +3,8 @@ chess>=1.11                    # regelmotor: FEN-tidslinje -> lovlig PGN-tre (im
 opencv-python-headless>=4.10  # brett-lokalisering + brikkegjenkjenning
 numpy>=1.26                   # bilde/frame-matte
 yt-dlp>=2026.8                # last ned YouTube-video (krever Node.js som JS-runtime)
-certifi>=2024.0               # CA-bundle for TLS: fikser [SSL: CERTIFICATE_VERIFY_FAILED] på Windows
+certifi>=2024.0               # CA-bundle for TLS (brukes når truststore ikke er aktiv)
+truststore>=0.9               # validér TLS mot OS-nøkkelringen (Keychain/Windows store) — fikser SSL-inspeksjon (antivirus/proxy/VPN) der certifi ikke har inspeksjons-sertifikatet. Python 3.10+
 
 # Valgfri, senere fase (ikke nødvendig for å kjøre):
 #   faster-whisper            # Fase 3: lokal tale-til-tekst som kryssjekk (ingen sky-GPU)

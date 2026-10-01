@@ -50,6 +50,24 @@ def _is_cert_error(stderr: str | None) -> bool:
             or "CERTIFICATE VERIFY FAILED" in s)
 
 
+# yt-dlp kjøres i en EGEN Python-prosess (subprocess). For at Mac-ens/Windows' egen
+# sertifikat-nøkkelring skal gjelde (se SSL-kommentaren i download_if_url) må truststore
+# injiseres INNE i den prosessen — en inject i denne prosessen når ikke barnet. Derfor
+# starter vi yt-dlp via `python -c <bootstrap>` i stedet for `python -m yt_dlp`: bootstrap
+# aktiverer truststore og kaller så yt_dlp.main(), som leser flaggene fra sys.argv[1:].
+# try/except: mangler truststore (gammelt venv før `git pull` + reinstall), kjører yt-dlp
+# som før, og --no-check-certificates-fallbacken under fanger en evt. cert-feil.
+_YT_BOOTSTRAP = (
+    "import sys\n"
+    "try:\n"
+    "    import truststore; truststore.inject_into_ssl()\n"
+    "except Exception as _e:\n"
+    "    sys.stderr.write('truststore ikke aktiv (%s) — bruker certifi/OS-cert\\n' % _e)\n"
+    "from yt_dlp import main\n"
+    "main()\n"
+)
+
+
 def download_if_url(src: str) -> str:
     """A local file path is returned as-is; an http(s) URL is downloaded once
     into downloads/ (named by a hash of the URL, so the same video is reused and
@@ -70,15 +88,20 @@ def download_if_url(src: str) -> str:
     # flagget laster yt-dlp ned HELE spillelista til samme fil, og returnerer exit 1
     # dersom BARE ÉN av videoene feiler (region-sperret, medlems-only, slettet, mangler
     # format) — selv om mål-videoen gikk fint. Vi vil alltid ha kun den ene lenken.
-    base_cmd = [sys.executable, "-m", "yt_dlp", "--no-playlist", "--js-runtimes", "node",
-                "-f", "bv*[height<=720][ext=mp4]/b[height<=720]", "-o", out, src]
+    base_cmd = [sys.executable, "-c", _YT_BOOTSTRAP, "--no-playlist", "--js-runtimes",
+                "node", "-f", "bv*[height<=720][ext=mp4]/b[height<=720]", "-o", out, src]
 
-    # SSL-cert-fella (Windows Python): [SSL: CERTIFICATE_VERIFY_FAILED] "unable to get
-    # local issuer certificate". yt-dlp verifiserer youtube.com mot certifi sin CA-bundle
-    # — men BARE hvis certifi er installert i venv'et. Mangler den, faller yt-dlp tilbake
-    # til OS-lageret, som Python på Windows ofte ikke finner et utsteder-sertifikat i.
-    # Rot-fiksen er derfor at certifi ligger i requirements.txt (installeres i venv);
-    # da virker verifisert nedlasting likt på alle maskiner etter `git pull`.
+    # SSL-cert-fella: [SSL: CERTIFICATE_VERIFY_FAILED] "unable to get local issuer
+    # certificate". FØRSTE anta-rot var at certifi manglet i venv'et — men det BET IKKE:
+    # certifi har allerede Googles røtter. Når feilen likevel kommer, er det fordi noe
+    # MELLOM maskinen og YouTube bytter ut sertifikatet: antivirus med «web-beskyttelse»,
+    # bedrifts-proxy (Zscaler/Netskope) eller VPN som gjør SSL-inspeksjon. Da signeres
+    # trafikken av et LOKALT cert som ligger i OS-nøkkelringen, men IKKE i certifi — og
+    # yt-dlp validerer mot certifi, så verifiseringen feiler.
+    # ROT-FIKS: truststore (aktivert i _YT_BOOTSTRAP) lar Python validere mot selve
+    # OS-nøkkelringen (macOS Keychain / Windows cert store), der AV-/proxy-sertifikatet
+    # ALLEREDE ligger. Da godtas inspeksjonen automatisk, på alle maskiner, uten manuell
+    # cert-eksport. Fungerer likt på Mac og Windows (Python 3.10+).
     proc = subprocess.run(base_cmd, capture_output=True, text=True)
 
     # Siste utvei: hvis det FORTSATT feiler på selve sertifikat-verifiseringen (f.eks.

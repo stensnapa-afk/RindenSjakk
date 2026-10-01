@@ -32,7 +32,7 @@ Alt er lokalt. Du trenger **Python 3** (og **Node.js** hvis du vil bruke video-i
    mangler), lager et lokalt miljø (`.venv`) og installerer avhengighetene.
 
 Avhengigheter (se `requirements.txt`): `opencv-python-headless`, `chess`, `yt-dlp`, `numpy`,
-`certifi`. Node.js trengs kun for video-nedlasting (yt-dlp bruker det som JS-runtime).
+`certifi`, `truststore`. Node.js trengs kun for video-nedlasting (yt-dlp bruker det som JS-runtime).
 
 > **Oppdaterer du en eksisterende installasjon?** Etter `git pull` må du kjøre
 > **`install.bat`** (Windows) / **`install.command`** (Mac) på nytt, ellers får du ikke
@@ -139,18 +139,33 @@ node -e "require('./viewer/chess.js'); require('./viewer/pgn.js'); \
 ## Feilsøking
 
 **Video-nedlasting feiler med `[SSL: CERTIFICATE_VERIFY_FAILED] unable to get local
-issuer certificate`.** `yt-dlp` verifiserer YouTube mot en CA-bundle (`certifi`), men
-finner den ikke — typisk fordi `certifi` mangler i miljøet (vanlig Windows-Python-felle).
+issuer certificate`.** Dette betyr som regel at noe **mellom maskinen din og YouTube
+bytter ut sertifikatet** — antivirus med «web-beskyttelse», en bedrifts-proxy
+(Zscaler/Netskope o.l.) eller en VPN som gjør SSL-inspeksjon. Da signeres trafikken av
+et lokalt sertifikat som ligger i maskinens egen nøkkelring, men ikke i den CA-bundlen
+(`certifi`) `yt-dlp` sjekker mot. (Å bare installere `certifi` hjelper derfor ofte ikke.)
 
 Slik fikser du det:
 1. **`git pull`** (henter siste kode).
-2. Kjør **`install.bat`** / **`install.command`** på nytt — det installerer `certifi` i
-   `.venv`, og verifisert nedlasting virker igjen.
+2. Kjør **`install.bat`** / **`install.command`** på nytt — det installerer nå også
+   **`truststore`**, som lar nedlastingen validere mot **maskinens egen nøkkelring**
+   (macOS Keychain / Windows cert store). Der ligger antivirus-/proxy-sertifikatet
+   allerede, så inspeksjonen godtas automatisk — uten manuell cert-eksport.
 
-Appen har også en innebygd sikkerhets­net: om verifisering *fortsatt* feiler på selve
-sertifikatet (f.eks. ødelagt cert-lager eller proxy), prøver den nedlastingen én gang til
-uten sertifikatsjekk og skriver en tydelig **ADVARSEL** i loggen. Kjør reinstall (over) for
-å få tilbake full verifisert nedlasting.
+Vil du bekrefte om det *er* SSL-inspeksjon, kjør i terminalen:
+
+```
+curl -vs https://www.youtube.com -o /dev/null 2>&1 | grep -i issuer
+```
+
+Står utstederen (`issuer`) som *Google Trust Services* (WR2/GTS), er linja ren.
+Står det et antivirus-/firma-/proxy-navn, er det SSL-inspeksjon — og `truststore`
+(punkt 2) er nettopp fiksen for det.
+
+Appen har også et innebygd sikkerhets­net: om verifisering *fortsatt* feiler på selve
+sertifikatet, prøver den nedlastingen én gang til uten sertifikatsjekk og skriver en
+tydelig **ADVARSEL** i loggen. Kjør reinstall (over) for å få tilbake full verifisert
+nedlasting.
 
 ---
 
